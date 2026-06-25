@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EWP Hub</title>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<style>
+  :root {
+    --bg: #F5F4F1; --surface: #FFFFFF; --surface2: #EFEDE8;
+    --border: #E0DDD6; --border2: #CCCAB8;
+    --text: #1C1B18; --text2: #6B6860; --text3: #9B9890;
+    --accent: #1A5FA8; --accent-light: #E8F0FA; --accent-dark: #0F3D6E;
+    --green: #2D7A3A; --green-light: #E6F4E9;
+    --amber: #92600A; --amber-light: #FEF3E2;
+    --red: #C0392B; --red-light: #FDECEB;
+    --font: 'Inter', system-ui, -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --radius: 8px; --radius-lg: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 14px; min-height: 100vh; }
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .logo { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }
+  .logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-size: 13px; font-weight: 800; }
+  .nav { display: flex; gap: 2px; }
+  .nav-btn { padding: 6px 14px; border-radius: 6px; border: none; background: transparent; font-size: 13px; cursor: pointer; color: var(--text2); font-family: var(--font); font-weight: 500; transition: all 0.15s; }
+  .nav-btn:hover { background: var(--surface2); color: var(--text); }
+  .nav-btn.active { background: var(--accent-light); color: var(--accent); }
+  .user-pill { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: 500; }
+  .user-pill:hover { border-color: var(--border2); }
+  .avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: white; }
+  .content { padding: 24px; max-width: 1100px; margin: 0 auto; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); font-size: 13px; cursor: pointer; color: var(--text); font-family: var(--font); font-weight: 500; transition: all 0.15s; white-space: nowrap; }
+  .btn:hover { background: var(--surface2); border-color: var(--border2); }
+  .btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
+  .btn.primary:hover { background: var(--accent-dark); }
+  .btn.danger { background: var(--red-light); color: var(--red); border-color: #F5C6C3; }
+  .btn.sm { padding: 5px 10px; font-size: 12px; }
+  .btn.ms { background: #0078D4; color: white; border-color: #0078D4; gap: 8px; }
+  .btn.ms:hover { background: #006CBE; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.7; }
+  .badge-pending { background: var(--amber-light); color: var(--amber); }
+  .badge-ready { background: var(--green-light); color: var(--green); }
+  .section-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .section-title { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
+  .section-sub { font-size: 13px; color: var(--text2); margin-top: 2px; }
+  .filter-section { margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .filter-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .filter-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.04em; margin-right: 4px; white-space: nowrap; }
+  .filter-chip { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-weight: 500; cursor: pointer; background: var(--surface); color: var(--text2); transition: all 0.15s; white-space: nowrap; }
+  .filter-chip:hover { border-color: var(--border2); color: var(--text); }
+  .filter-chip.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .job-grid { display: grid; gap: 10px; }
+  .job-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; cursor: pointer; transition: all 0.15s; }
+  .job-card:hover { border-color: var(--border2); box-shadow: var(--shadow); }
+  .job-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; gap: 12px; }
+  .job-address { font-weight: 600; font-size: 14px; }
+  .job-customer { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .job-meta { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text2); flex-wrap: wrap; }
+  .files-indicator { display: flex; gap: 6px; margin-top: 10px; }
+  .file-tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; background: var(--green-light); color: var(--green); }
+  .file-tag.missing { background: var(--surface2); color: var(--text3); }
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--surface); border-radius: var(--radius-lg); border: 1px solid var(--border); padding: 24px; width: 500px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-md); }
+  .modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 18px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 5px; }
+  .field input, .field select, .field textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); font-size: 14px; font-family: var(--font); }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
+  .field textarea { min-height: 80px; resize: vertical; }
+  .upload-zone { border: 1.5px dashed var(--border2); border-radius: var(--radius); padding: 20px; text-align: center; cursor: pointer; font-size: 13px; color: var(--text2); transition: all 0.15s; }
+  .upload-zone:hover { background: var(--surface2); border-color: var(--accent); }
+  .upload-zone.has-file { border-color: var(--green); background: var(--green-light); color: var(--green); }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .detail-field { background: var(--surface2); border-radius: var(--radius); padding: 10px 12px; }
+  .detail-field .lbl { font-size: 11px; color: var(--text3); font-weight: 500; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .detail-field .val { font-size: 13px; font-weight: 600; }
+  .cut-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .cut-table th { text-align: left; padding: 7px 10px; font-size: 11px; font-weight: 600; color: var(--text2); border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.04em; }
+  .cut-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .cut-table tr:last-child td { border-bottom: none; }
+  .cut-table tr:hover td { background: var(--surface2); }
+  .sku { font-family: var(--mono); font-size: 12px; color: var(--accent); font-weight: 600; }
+  .tag-chip { font-family: var(--mono); font-size: 12px; font-weight: 700; color: #444; background: #f0f0f0; padding: 2px 6px; border-radius: 4px; }
+  .qty-cell { font-weight: 700; font-size: 15px; text-align: center; }
+  .special { background: var(--amber-light); color: var(--amber); padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .cat-hdr { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 0 6px; border-bottom: 1px solid var(--border); margin-bottom: 2px; }
+  .floor-div { border: none; border-top: 2px solid var(--border); margin: 24px 0; }
+  .sync-panel { border-radius: var(--radius-lg); padding: 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+  .sync-panel.connected { background: var(--accent-light); border: 1px solid #C5D8F5; }
+  .sync-panel.disconnected { background: #FFF8F0; border: 1px solid #FFD9B0; }
+  .sync-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 16px; flex-shrink: 0; }
+  .sync-icon.connected { background: var(--accent); }
+  .sync-icon.disconnected { background: #E87722; }
+  .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); display: inline-block; margin-right: 4px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+  .empty { text-align: center; padding: 48px 20px; color: var(--text2); }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.3; }
+  .empty-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .pw-gate { text-align: center; padding: 40px 24px; }
+  .pw-gate input { width: 200px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; text-align: center; font-family: var(--font); display: block; margin: 0 auto 12px; }
+  .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .tab { padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text2); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .detail-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; }
+  .admin-section { margin-bottom: 28px; }
+  .admin-section-title { font-size: 12px; font-weight: 700; color: var(--text3); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.05em; }
+  .salesperson-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface2); border-radius: var(--radius); margin-bottom: 6px; }
+  .add-sp-row { display: flex; gap: 8px; margin-top: 12px; }
+  .add-sp-row input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; font-family: var(--font); }
+  .add-sp-row input:focus { outline: none; border-color: var(--accent); }
+  .code-block { background: #1e1e2e; color: #cdd6f4; padding: 12px 14px; border-radius: var(--radius); font-family: var(--mono); font-size: 12px; margin-top: 8px; white-space: pre; overflow-x: auto; line-height: 1.6; }
+  .onedrive-status { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-radius: var(--radius); margin-bottom: 16px; }
+  .onedrive-status.ok { background: var(--green-light); color: var(--green); border: 1px solid #B2DFB8; }
+  .onedrive-status.err { background: var(--red-light); color: var(--red); border: 1px solid #F5C6C3; }
+  .onedrive-status.warn { background: var(--amber-light); color: var(--amber); border: 1px solid #FFD9A0; }
+  .file-list { display: grid; gap: 6px; margin-top: 10px; }
+  .file-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--surface2); border-radius: var(--radius); font-size: 12px; }
+  .file-row-name { font-weight: 500; }
+  .file-row-meta { color: var(--text3); }
+  @media (max-width:600px) { .content{padding:16px} .detail-grid{grid-template-columns:1fr} .topbar{padding:0 16px} }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:16px">
+    <div class="logo">
+      <div class="logo-icon">EW</div>
+      EWP Hub
+    </div>
+    <nav class="nav">
+      <button class="nav-btn active" onclick="showPage('jobs',this)">Jobs</button>
+      <button class="nav-btn" onclick="showPage('admin',this)">Admin</button>
+    </nav>
+  </div>
+  <div class="user-pill" onclick="openModal('userModal')">
+    <div class="avatar" id="avatarEl">--</div>
+    <span id="userNameEl">Select user</span>
+    <span style="color:var(--text3);font-size:11px">▾</span>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- JOBS -->
+  <div class="page active" id="page-jobs">
+    <div class="section-hdr">
+      <div>
+        <div class="section-title">Jobs</div>
+        <div class="section-sub">All active floor system projects</div>
+      </div>
+      <button class="btn primary" onclick="openModal('newJobModal')">＋ New job</button>
+    </div>
+
+    <div class="sync-panel disconnected" id="syncPanel">
+      <div class="sync-icon disconnected" id="syncIconEl">☁</div>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13px;margin-bottom:2px" id="syncTitleEl">OneDrive not connected</div>
+        <div style="font-size:12px;color:var(--text2)" id="syncSubEl">Sign in with Microsoft to enable automatic sync from your EWP Jobs folder</div>
+      </div>
+      <button class="btn ms" id="syncActionBtn" onclick="msSignIn()">
+        <svg width="16" height="16" viewBox="0 0 21 21" fill="none"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>
+        Sign in with Microsoft
+      </button>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-bar" id="statusFilterBar">
+        <span class="filter-label">Status</span>
+        <div class="filter-chip active" onclick="filterStatus('all',this)">All</div>
+        <div class="filter-chip" onclick="filterStatus('Pending',this)">Pending</div>
+        <div class="filter-chip" onclick="filterStatus('Ready',this)">Ready</div>
+      </div>
+      <div class="filter-bar" id="salesFilterBar">
+        <span class="filter-label">Sales person</span>
+      </div>
+    </div>
+
+    <div class="job-grid" id="jobGrid"></div>
+  </div>
+
+  <!-- ADMIN -->
+  <div class="page" id="page-admin">
+    <div id="adminGate">
+      <div class="pw-gate">
+        <div style="font-size:36px;margin-bottom:12px">🔒</div>
+        <div style="font-weight:600;font-size:16px;margin-bottom:4px">Admin access</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Enter your password to continue</div>
+        <input type="password" id="adminPwInput" placeholder="Password" onkeydown="if(event.key==='Enter')checkAdminPw()"/>
+        <button class="btn primary" onclick="checkAdminPw()">Unlock</button>
+        <div id="pwError" style="font-size:12px;color:var(--red);margin-top:10px;display:none">Incorrect password</div>
+      </div>
+    </div>
+    <div id="adminPanel" style="display:none">
+      <div class="section-hdr">
+        <div><div class="section-title">Admin panel</div><div class="section-sub">Jobs, sales people, and OneDrive settings</div></div>
+        <button class="btn" onclick="lockAdmin()">🔒 Lock</button>
+      </div>
+      <div class="detail-panel">
+        <div class="tabs">
+          <div class="tab active" onclick="showTab('tab-jobs',this)">All jobs</div>
+          <div class="tab" onclick="showTab('tab-salespeople',this)">Sales people</div>
+          <div class="tab" onclick="showTab('tab-onedrive',this)">OneDrive</div>
+        </div>
+
+        <div class="tab-content active" id="tab-jobs">
+          <div id="adminJobList"></div>
+        </div>
+
+        <div class="tab-content" id="tab-salespeople">
+          <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Add or remove sales people. Changes apply immediately across the whole app.</p>
+          <div id="salespersonList"></div>
+          <div class="add-sp-row">
+            <input type="text" id="newSpInput" placeholder="Enter new sales person name..." onkeydown="if(event.key==='Enter')addSalesPerson()"/>
+            <button class="btn primary" onclick="addSalesPerson()">＋ Add</button>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tab-onedrive">
+          <div class="admin-section">
+            <div class="admin-section-title">Microsoft account</div>
+            <div id="odAccountStatus"></div>
+          </div>
+
+          <div class="admin-section">
+            <div class="admin-section-title">OneDrive folder</div>
+            <p style="font-size:13px;color:var(--text2);margin-bottom:12px">
+              Save your layout and material list PDFs into subfolders named after each sales person. The hub matches files to jobs by the address in the filename.
+            </p>
+            <div class="code-block">OneDrive/
+└── EWP Jobs/
+    ├── Mike Freeman/
+    │   ├── 123 Oak Street Material List.pdf
+    │   ├── 123 Oak Street Layout.pdf
+    │   └── 456 Maple Ave Layout.pdf
+    ├── Tingey Deol/
+    │   └── 789 Cedar Blvd Layout.pdf
+    └── ...</div>
+            <div style="margin-top:10px;padding:10px 14px;background:var(--amber-light);border-radius:var(--radius);font-size:12px;color:var(--amber)">
+              <strong>Naming rule:</strong> Include the job address in the filename. Add "Layout" or "Material List" to tell them apart. No subfolders needed inside each sales person's folder.
+            </div>
+          </div>
+
+          <div class="admin-section">
+            <div class="admin-section-title">Sync now</div>
+            <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Manually scan your OneDrive EWP Jobs folder for new files and update jobs.</p>
+            <button class="btn primary" onclick="runSync()">🔄 Sync now</button>
+            <div id="syncLog" style="margin-top:12px;font-size:12px;color:var(--text2);"></div>
+          </div>
+
+          <div class="admin-section">
+            <div class="admin-section-title">Files found in OneDrive</div>
+            <div id="odFileList"><p style="font-size:13px;color:var(--text2)">Sign in and sync to see files.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- USER MODAL -->
+<div class="modal-bg" id="userModal">
+  <div class="modal" style="width:320px">
+    <h2>Who are you?</h2>
+    <div class="field"><label>Select your name</label><select id="userSelect"></select></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('userModal')">Cancel</button>
+      <button class="btn primary" onclick="setUser()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW JOB MODAL -->
+<div class="modal-bg" id="newJobModal">
+  <div class="modal">
+    <h2>New job</h2>
+    <div class="field"><label>Sales person</label><select id="newJobSales"></select></div>
+    <div class="field"><label>Customer name</label><input type="text" id="newJobCustomer" placeholder="e.g. Paddington Properties"/></div>
+    <div class="field">
+      <label>Job address <span style="color:var(--text3);font-weight:400">(must match your OneDrive filenames exactly)</span></label>
+      <input type="text" id="newJobAddress" placeholder="e.g. 123 Oak Street, Surrey BC"/>
+    </div>
+    <div class="field">
+      <label>Upload plans PDF</label>
+      <div class="upload-zone" id="plansZone" onclick="document.getElementById('plansFile').click()">
+        <div style="font-size:24px;margin-bottom:6px">📄</div>
+        Click to upload plans PDF
+      </div>
+      <input type="file" id="plansFile" accept=".pdf" style="display:none" onchange="handlePlanUpload(this)"/>
+    </div>
+    <div class="field"><label>Notes (optional)</label><textarea id="newJobNotes" placeholder="Any special requirements..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('newJobModal')">Cancel</button>
+      <button class="btn primary" onclick="createJob()">Create job</button>
+    </div>
+  </div>
+</div>
+
+<!-- JOB DETAIL MODAL -->
+<div class="modal-bg" id="jobDetailModal">
+  <div class="modal" style="width:600px">
+    <div id="jobDetailContent"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('jobDetailModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT JOB MODAL -->
+<div class="modal-bg" id="editJobModal">
+  <div class="modal">
+    <h2>Edit job</h2>
+    <div class="field"><label>Address</label><input type="text" id="editAddress"/></div>
+    <div class="field"><label>Customer name</label><input type="text" id="editCustomer"/></div>
+    <div class="field"><label>Sales person</label><select id="editSales"></select></div>
+    <div class="field"><label>Status</label>
+      <select id="editStatus"><option>Pending</option><option>Ready</option></select>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="editNotes"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn danger" onclick="deleteEditJob()">🗑 Delete</button>
+      <button class="btn" onclick="closeModal('editJobModal')">Cancel</button>
+      <button class="btn primary" onclick="saveEdit()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- CUT LIST MODAL -->
+<div class="modal-bg" id="cutListModal">
+  <div class="modal" style="width:700px">
+    <div id="cutListContent"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="window.print()">🖨 Print</button>
+      <button class="btn primary" id="csvBtn">⬇ Eagle CSV</button>
+      <button class="btn" onclick="closeModal('cutListModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── MSAL CONFIG ──
+const TENANT_ID = '172c68c5-0c33-4d17-9d99-b04691590fcc';
+const CLIENT_ID = '07a01625-5820-417c-9d14-40eed9019681';
+const FOLDER_NAME = 'EWP Jobs';
+
+const msalConfig = {
+  auth: {
+    clientId: CLIENT_ID,
+    authority: `https://login.microsoftonline.com/${TENANT_ID}`,
+    redirectUri: window.location.href.split('?')[0]
+  },
+  cache: { cacheLocation: 'sessionStorage' }
+};
+
+const SCOPES = ['Files.Read.All', 'User.Read'];
+let msAccount = null;
+let msalInstance = null;
+
+try {
+  msalInstance = new msal.PublicClientApplication(msalConfig);
+  msalInstance.handleRedirectPromise().then(resp => {
+    if (resp && resp.account) {
+      msAccount = resp.account;
+      updateSyncPanel();
+    } else {
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length > 0) { msAccount = accounts[0]; updateSyncPanel(); }
+    }
+  }).catch(e => console.warn('MSAL redirect:', e));
+} catch(e) {
+  console.warn('MSAL init failed (likely running locally):', e);
+}
+
+async function msSignIn() {
+  if (!msalInstance) { alert('Sign in requires the app to be hosted on a web server, not opened as a local file.'); return; }
+  try {
+    const resp = await msalInstance.loginPopup({ scopes: SCOPES });
+    msAccount = resp.account;
+    updateSyncPanel();
+  } catch(e) {
+    if (e.errorCode !== 'user_cancelled') alert('Sign in failed: ' + e.message);
+  }
+}
+
+async function msSignOut() {
+  if (!msalInstance) return;
+  await msalInstance.logoutPopup({ account: msAccount });
+  msAccount = null;
+  updateSyncPanel();
+}
+
+async function getToken() {
+  if (!msAccount || !msalInstance) return null;
+  try {
+    const resp = await msalInstance.acquireTokenSilent({ scopes: SCOPES, account: msAccount });
+    return resp.accessToken;
+  } catch(e) {
+    const resp = await msalInstance.acquireTokenPopup({ scopes: SCOPES, account: msAccount });
+    return resp.accessToken;
+  }
+}
+
+function updateSyncPanel() {
+  const panel = document.getElementById('syncPanel');
+  const icon = document.getElementById('syncIconEl');
+  const title = document.getElementById('syncTitleEl');
+  const sub = document.getElementById('syncSubEl');
+  const btn = document.getElementById('syncActionBtn');
+
+  if (msAccount) {
+    panel.className = 'sync-panel connected';
+    icon.className = 'sync-icon connected';
+    icon.textContent = '☁';
+    title.innerHTML = `<span class="sync-dot"></span>OneDrive connected — ${msAccount.name || msAccount.username}`;
+    sub.textContent = `Watching EWP Jobs/ for new files. Drop layout + material list PDFs to update jobs automatically.`;
+    btn.className = 'btn sm';
+    btn.innerHTML = 'Sign out';
+    btn.onclick = msSignOut;
+
+    // Update admin OneDrive status
+    document.getElementById('odAccountStatus').innerHTML = `
+      <div class="onedrive-status ok">
+        <span style="font-size:18px">✓</span>
+        <div>
+          <div style="font-weight:600">Connected as ${msAccount.name || msAccount.username}</div>
+          <div style="font-size:12px;margin-top:2px">${msAccount.username}</div>
+        </div>
+        <button class="btn sm danger" style="margin-left:auto" onclick="msSignOut()">Sign out</button>
+      </div>`;
+  } else {
+    panel.className = 'sync-panel disconnected';
+    icon.className = 'sync-icon disconnected';
+    title.textContent = 'OneDrive not connected';
+    sub.textContent = 'Sign in with Microsoft to enable automatic sync from your EWP Jobs folder';
+    btn.className = 'btn ms';
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 21 21" fill="none"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg> Sign in with Microsoft`;
+    btn.onclick = msSignIn;
+
+    document.getElementById('odAccountStatus').innerHTML = `
+      <div class="onedrive-status warn">
+        <span style="font-size:18px">⚠</span>
+        <div>Not signed in. Sign in to connect OneDrive.</div>
+        <button class="btn ms" style="margin-left:auto" onclick="msSignIn()">
+          <svg width="14" height="14" viewBox="0 0 21 21" fill="none"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>
+          Sign in
+        </button>
+      </div>`;
+  }
+}
+
+// ── ONEDRIVE SYNC ──
+async function runSync() {
+  if (!msAccount) { alert('Please sign in with Microsoft first.'); return; }
+  const log = document.getElementById('syncLog');
+  log.textContent = 'Scanning OneDrive...';
+  try {
+    const token = await getToken();
+    const headers = { Authorization: `Bearer ${token}` };
+
+    // Get the EWP Jobs folder
+    const rootResp = await fetch(`https://graph.microsoft.com/v1.0/me/drive/root:/${FOLDER_NAME}:/children`, { headers });
+    if (!rootResp.ok) {
+      log.innerHTML = `<span style="color:var(--red)">Could not find "${FOLDER_NAME}" folder in your OneDrive. Make sure it exists.</span>`;
+      return;
+    }
+    const rootData = await rootResp.json();
+    const spFolders = rootData.value.filter(i => i.folder);
+
+    let filesFound = [];
+    let matchedJobs = 0;
+
+    // For each sales person folder
+    for (const spFolder of spFolders) {
+      const spResp = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${spFolder.id}/children`, { headers });
+      const spData = await spResp.json();
+      const pdfFiles = spData.value.filter(f => f.name.toLowerCase().endsWith('.pdf'));
+
+      for (const file of pdfFiles) {
+        const name = file.name;
+        const isLayout = /layout/i.test(name);
+        const isMaterialList = /material list/i.test(name);
+        if (!isLayout && !isMaterialList) continue;
+
+        filesFound.push({ name, salesPerson: spFolder.name, isLayout, isMaterialList, downloadUrl: file['@microsoft.graph.downloadUrl'], id: file.id });
+
+        // Try to match to a job
+        const matchedJob = jobs.find(j => {
+          const addr = j.address.toLowerCase();
+          const fname = name.toLowerCase().replace(/layout|material list|\.pdf/gi,'').trim();
+          return addr.includes(fname) || fname.includes(addr.split(',')[0].toLowerCase().trim());
+        });
+
+        if (matchedJob) {
+          matchedJobs++;
+          if (isLayout) { matchedJob.hasLayout = true; }
+          if (isMaterialList) { matchedJob.hasCutList = true; }
+          if (matchedJob.hasLayout && matchedJob.hasCutList) { matchedJob.status = 'Ready'; }
+        }
+      }
+    }
+
+    // Render file list
+    const fileListEl = document.getElementById('odFileList');
+    if (filesFound.length === 0) {
+      fileListEl.innerHTML = '<p style="font-size:13px;color:var(--text2)">No PDF files found in EWP Jobs folder yet.</p>';
+    } else {
+      fileListEl.innerHTML = `<div class="file-list">${filesFound.map(f=>`
+        <div class="file-row">
+          <div>
+            <div class="file-row-name">${f.name}</div>
+            <div class="file-row-meta">📁 ${f.salesPerson} · ${f.isLayout ? '🖼 Layout' : '📋 Material list'}</div>
+          </div>
+          <span style="font-size:11px;background:var(--green-light);color:var(--green);padding:2px 8px;border-radius:4px;font-weight:500">Found</span>
+        </div>`).join('')}</div>`;
+    }
+
+    log.innerHTML = `<span style="color:var(--green)">✓ Sync complete — ${filesFound.length} file${filesFound.length!==1?'s':''} found, ${matchedJobs} job${matchedJobs!==1?'s':''} updated.</span>`;
+    renderJobs();
+  } catch(e) {
+    log.innerHTML = `<span style="color:var(--red)">Sync error: ${e.message}</span>`;
+    console.error(e);
+  }
+}
+
+// ── APP STATE ──
+const ADMIN_PW = 'Boise123';
+let currentUser = '';
+let activeStatusFilter = 'all';
+let activeSalesFilter = 'all';
+let editingJobId = null;
+let nextId = 10;
+
+let salesPeople = [
+  'Mike Freeman','Tingey Deol','Dave Deobald','Maryann Armbrust',
+  'Kyle Strom','Tracey Reece','FVBS Mission','FVBS Trail',
+  'FVBS Nelson','FVBS Terrace','FVBS 100 Mile House'
+];
+const FIXED_USERS = ['Ethan (Designer)', 'Beam Yard'];
+
+let jobs = [
+  {id:1,address:'12345 Oak Street, Surrey BC',customer:'Coastal Homes Ltd',sales:'Mike Freeman',status:'Ready',date:'2026-06-18',notes:'2-storey, standard layout',planFile:'plans.pdf',hasLayout:true,hasCutList:true,
+    cutList:{project:'12345 Oak Street',builder:'Coastal Homes Ltd',floors:{'1st Floor':{
+      rimFt:964,rimSku:'710056',rimProd:'1-1/4" x 11-7/8" BC RIM BOARD PLUS OSB',
+      joists:[{product:'11-7/8" BCI 6000-1.8 DF',sku:'BCI600011',tag:'K18',qty:3,length:18},{product:'11-7/8" BCI 6000-1.8 DF',sku:'BCI600011',tag:'K17',qty:58,length:17},{product:'11-7/8" BCI 6000-1.8 DF',sku:'BCI600011',tag:'K14',qty:55,length:14},{product:'11-7/8" BCI 6000-1.8 DF',sku:'BCI600011',tag:'K13',qty:34,length:13}],
+      beams:[{product:'1-3/4" x 11-7/8" VERSA-LAM LVL 2.1E 2800 DF',sku:'VL111',tag:'Ca3',qty:7,length:12},{product:'1-3/4" x 11-7/8" VERSA-LAM LVL 2.1E 2800 DF',sku:'VL111',tag:'BM1',qty:6,length:5},{product:'3-1/2" x 11-7/8" VERSA-LAM LVL 2.3E 3100 DF',sku:'VL311',tag:'BM3',qty:10,length:19},{product:'3-1/2" x 11-7/8" VERSA-LAM LVL 2.3E 3100 DF',sku:'VL311',tag:'BM4',qty:4,length:18},{product:'3-1/2" x 9-1/2" VERSA-LAM LVL 2.3E 3100 DF',sku:'VL395',tag:'BM2',qty:6,length:13}],
+      posts:[],decking:126,
+      connectors:{'IUS2.37/11.88':90,'HGUS410':6,'HUC410':4},
+      connectorSkus:{'IUS2.37/11.88':'35945110','HGUS410':'8589042','HUC410':'35945420'}
+    }}}},
+  {id:2,address:'987 Maple Ave, Langley BC',customer:'Westview Construction',sales:'Tingey Deol',status:'Pending',date:'2026-06-20',notes:'',planFile:'plans.pdf',hasLayout:false,hasCutList:false,cutList:null},
+  {id:3,address:'456 Cedar Blvd, Burnaby BC',customer:'Pacific Builds',sales:'Dave Deobald',status:'Pending',date:'2026-06-19',notes:'Cantilever on south side',planFile:'plans.pdf',hasLayout:false,hasCutList:false,cutList:null},
+  {id:4,address:'77 Birch Cres, Richmond BC',customer:'Parkway Homes',sales:'Maryann Armbrust',status:'Pending',date:'2026-06-21',notes:'',planFile:'',hasLayout:false,hasCutList:false,cutList:null},
+];
+
+function rebuildSelects(){
+  const allUsers=[...FIXED_USERS,...salesPeople];
+  const us=document.getElementById('userSelect');const ucur=us.value;
+  us.innerHTML='<option value="">-- Select --</option>'+allUsers.map(n=>`<option${n===ucur?' selected':''}>${n}</option>`).join('');
+  ['newJobSales','editSales'].forEach(id=>{
+    const el=document.getElementById(id);const cur=el.value;
+    el.innerHTML='<option value="">-- Select --</option>'+salesPeople.map(n=>`<option${n===cur?' selected':''}>${n}</option>`).join('');
+  });
+}
+
+function rebuildSalesFilters(){
+  const bar=document.getElementById('salesFilterBar');
+  bar.innerHTML='<span class="filter-label">Sales person</span>';
+  const allChip=document.createElement('div');
+  allChip.className='filter-chip'+(activeSalesFilter==='all'?' active':'');
+  allChip.textContent='All';allChip.onclick=function(){filterSales('all',this);};
+  bar.appendChild(allChip);
+  salesPeople.forEach(sp=>{
+    const c=document.createElement('div');
+    c.className='filter-chip'+(activeSalesFilter===sp?' active':'');
+    c.textContent=sp;c.onclick=function(){filterSales(sp,this);};
+    bar.appendChild(c);
+  });
+}
+
+function badge(s){
+  return `<span class="badge ${s==='Ready'?'badge-ready':'badge-pending'}">${s}</span>`;
+}
+
+function renderJobs(){
+  const grid=document.getElementById('jobGrid');
+  const list=jobs.filter(j=>{
+    const sOk=activeStatusFilter==='all'||j.status===activeStatusFilter;
+    const spOk=activeSalesFilter==='all'||j.sales===activeSalesFilter;
+    return sOk&&spOk;
+  });
+  if(!list.length){
+    grid.innerHTML=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-title">No jobs found</div><div class="empty-sub">Try a different filter or create a new job</div></div>`;
+    return;
+  }
+  grid.innerHTML=list.map(j=>`
+    <div class="job-card" onclick="openJobDetail(${j.id})">
+      <div class="job-top">
+        <div><div class="job-address">${j.address}</div><div class="job-customer">${j.customer||'—'}</div></div>
+        ${badge(j.status)}
+      </div>
+      <div class="job-meta"><span>👤 ${j.sales}</span><span>📅 ${j.date}</span></div>
+      <div class="files-indicator">
+        <div class="file-tag ${j.planFile?'':'missing'}">${j.planFile?'✓':'○'} Plans</div>
+        <div class="file-tag ${j.hasLayout?'':'missing'}">${j.hasLayout?'✓':'○'} Layout</div>
+        <div class="file-tag ${j.hasCutList?'':'missing'}">${j.hasCutList?'✓':'○'} Cut list</div>
+      </div>
+    </div>`).join('');
+}
+
+function filterStatus(f,el){
+  activeStatusFilter=f;
+  document.querySelectorAll('#statusFilterBar .filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');renderJobs();
+}
+function filterSales(f,el){
+  activeSalesFilter=f;
+  document.querySelectorAll('#salesFilterBar .filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');renderJobs();
+}
+
+function openJobDetail(id){
+  const j=jobs.find(x=>x.id===id);if(!j)return;
+  document.getElementById('jobDetailContent').innerHTML=`
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:12px">
+      <div>
+        <div style="font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px">Job details</div>
+        <div style="font-size:18px;font-weight:700;letter-spacing:-0.3px">${j.address}</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:2px">${j.customer||''}</div>
+      </div>${badge(j.status)}
+    </div>
+    <div class="detail-grid">
+      <div class="detail-field"><div class="lbl">Sales person</div><div class="val">${j.sales}</div></div>
+      <div class="detail-field"><div class="lbl">Date created</div><div class="val">${j.date}</div></div>
+      <div class="detail-field"><div class="lbl">Plans</div><div class="val">${j.planFile?'<span style="color:var(--green)">✓ Uploaded</span>':'<span style="color:var(--text3)">Not uploaded</span>'}</div></div>
+      <div class="detail-field"><div class="lbl">Layout</div><div class="val">${j.hasLayout?'<span style="color:var(--green)">✓ Ready</span>':'<span style="color:var(--text3)">Waiting for OneDrive</span>'}</div></div>
+    </div>
+    ${j.notes?`<div style="font-size:13px;color:var(--text2);padding:10px 12px;background:var(--surface2);border-radius:var(--radius);margin-bottom:16px">📝 ${j.notes}</div>`:''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${j.hasCutList?`<button class="btn primary" onclick="viewCutList(${j.id});closeModal('jobDetailModal')">📋 View cut list</button>`:''}
+      ${j.planFile?`<button class="btn" onclick="alert('Plans PDF would open here')">⬇ Download plans</button>`:''}
+      ${j.hasLayout?`<button class="btn" onclick="alert('Layout PDF would open here')">⬇ Download layout</button>`:''}
+    </div>`;
+  openModal('jobDetailModal');
+}
+
+function viewCutList(id){
+  const j=jobs.find(x=>x.id===id);if(!j||!j.cutList)return;
+  const cl=j.cutList;
+  let html=`<div style="margin-bottom:16px">
+    <div style="font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px">Cut list</div>
+    <div style="font-size:18px;font-weight:700;letter-spacing:-0.3px">${j.address}</div>
+    <div style="font-size:13px;color:var(--text2);margin-top:2px">${j.customer} · ${j.sales} · ${j.date}</div>
+  </div>
+  <div style="background:var(--green-light);border-radius:var(--radius);padding:10px 14px;font-size:12px;color:var(--green);margin-bottom:16px">
+    ✓ Enter into Eagle line by line using the SKUs. Tags match the layout drawing.
+  </div>`;
+  Object.keys(cl.floors).forEach((fk,fi)=>{
+    const f=cl.floors[fk];
+    if(fi>0)html+=`<hr class="floor-div">`;
+    html+=`<div style="display:inline-block;font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-light);padding:4px 14px;border-radius:20px;margin-bottom:16px">${fk}</div>`;
+    if(f.rimFt>0){
+      const pcs=Math.ceil(f.rimFt/16);
+      html+=`<div class="cat-hdr">Rimboard</div><table class="cut-table"><thead><tr><th style="width:16%">SKU</th><th style="width:38%">Description</th><th style="width:8%">Tag</th><th style="width:9%">Qty</th><th style="width:10%">Unit</th><th>Note</th></tr></thead><tbody>
+      <tr><td><span class="sku">${f.rimSku}</span></td><td>${f.rimProd}</td><td></td><td class="qty-cell">${pcs}</td><td>EA</td><td style="font-size:11px;color:var(--text3)">16' pcs (${f.rimFt}' ÷ 16)</td></tr></tbody></table>`;
+    }
+    if(f.joists&&f.joists.length){
+      html+=`<div class="cat-hdr">Joists</div><table class="cut-table"><thead><tr><th style="width:16%">SKU</th><th style="width:38%">Description</th><th style="width:8%">Tag</th><th style="width:9%">Qty</th><th style="width:10%">Length</th><th></th></tr></thead><tbody>`;
+      f.joists.forEach(jt=>html+=`<tr><td>${jt.sku?`<span class="sku">${jt.sku}</span>`:`<span class="special">Special order</span>`}</td><td>${jt.product}</td><td>${jt.tag?`<span class="tag-chip">${jt.tag}</span>`:''}</td><td class="qty-cell">${jt.qty}</td><td>${jt.length}'</td><td></td></tr>`);
+      html+=`</tbody></table>`;
+    }
+    if(f.beams&&f.beams.length){
+      html+=`<div class="cat-hdr">Beams</div><table class="cut-table"><thead><tr><th style="width:16%">SKU</th><th style="width:38%">Description</th><th style="width:8%">Tag</th><th style="width:9%">Qty</th><th style="width:10%">Length</th><th></th></tr></thead><tbody>`;
+      f.beams.forEach(b=>html+=`<tr><td>${b.sku?`<span class="sku">${b.sku}</span>`:`<span class="special">Special order</span>`}</td><td>${b.product}</td><td>${b.tag?`<span class="tag-chip">${b.tag}</span>`:''}</td><td class="qty-cell">${b.qty}</td><td>${b.length}'</td><td></td></tr>`);
+      html+=`</tbody></table>`;
+    }
+    if(f.posts&&f.posts.length){
+      html+=`<div class="cat-hdr">Posts</div><table class="cut-table"><thead><tr><th style="width:16%">SKU</th><th style="width:38%">Description</th><th style="width:8%">Tag</th><th style="width:9%">Qty</th><th style="width:10%">Length</th><th></th></tr></thead><tbody>`;
+      f.posts.forEach(p=>html+=`<tr><td>${p.sku?`<span class="sku">${p.sku}</span>`:`<span class="special">Special order</span>`}</td><td>${p.product}</td><td>${p.tag?`<span class="tag-chip">${p.tag}</span>`:''}</td><td class="qty-cell">${p.qty}</td><td>${p.length}'</td><td></td></tr>`);
+      html+=`</tbody></table>`;
+    }
+    if(f.decking){
+      html+=`<div class="cat-hdr">Decking</div><table class="cut-table"><thead><tr><th style="width:16%">SKU</th><th style="width:38%">Description</th><th style="width:8%">Tag</th><th style="width:9%">Qty</th><th style="width:10%">Unit</th><th></th></tr></thead><tbody>
+      <tr><td><span class="sku">2332OSB</span></td><td>3/4" 4x8 OSB (Floor Decking)</td><td></td><td class="qty-cell">${f.decking}</td><td>EA</td><td></td></tr></tbody></table>`;
+    }
+    if(f.connectors&&Object.keys(f.connectors).length){
+      html+=`<div class="cat-hdr">Connectors</div><table class="cut-table"><thead><tr><th style="width:16%">SKU</th><th style="width:38%">Description</th><th style="width:8%">Tag</th><th style="width:9%">Qty</th><th style="width:10%">Unit</th><th></th></tr></thead><tbody>`;
+      Object.entries(f.connectors).forEach(([prod,qty])=>{
+        const sku=f.connectorSkus&&f.connectorSkus[prod]?f.connectorSkus[prod]:null;
+        html+=`<tr><td>${sku?`<span class="sku">${sku}</span>`:`<span class="special">Special order</span>`}</td><td>${prod}</td><td></td><td class="qty-cell">${qty}</td><td>EA</td><td></td></tr>`;
+      });
+      html+=`</tbody></table>`;
+    }
+  });
+  document.getElementById('cutListContent').innerHTML=html;
+  document.getElementById('csvBtn').onclick=()=>downloadCSV(id);
+  openModal('cutListModal');
+}
+
+function downloadCSV(id){
+  const j=jobs.find(x=>x.id===id);if(!j||!j.cutList)return;
+  const rows=[['Floor','Category','SKU','Description','Tag','Qty','Unit','Length','Note']];
+  Object.entries(j.cutList.floors).forEach(([fk,f])=>{
+    if(f.rimFt>0){const p=Math.ceil(f.rimFt/16);rows.push([fk,'Rimboard',f.rimSku,f.rimProd,'',p,'EA',"16'",`Total ${f.rimFt}' ÷ 16`]);}
+    (f.joists||[]).forEach(jt=>rows.push([fk,'Joists',jt.sku||'SPECIAL',jt.product,jt.tag||'',jt.qty,'EA',jt.length+"'",'']));
+    (f.beams||[]).forEach(b=>rows.push([fk,'Beams',b.sku||'SPECIAL',b.product,b.tag||'',b.qty,'EA',b.length+"'",'']));
+    (f.posts||[]).forEach(p=>rows.push([fk,'Posts',p.sku||'SPECIAL',p.product,p.tag||'',p.qty,'EA',p.length+"'",'']));
+    if(f.decking)rows.push([fk,'Decking','2332OSB','3/4" 4x8 OSB (Floor Decking)','',f.decking,'EA','','']);
+    Object.entries(f.connectors||{}).forEach(([prod,qty])=>{
+      rows.push([fk,'Connectors',f.connectorSkus&&f.connectorSkus[prod]||'SPECIAL',prod,'',qty,'EA','','']);
+    });
+  });
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=`CutList_${j.address.replace(/[^a-z0-9]/gi,'_')}.csv`;a.click();
+}
+
+function handlePlanUpload(inp){
+  if(inp.files&&inp.files[0]){
+    const z=document.getElementById('plansZone');
+    z.classList.add('has-file');
+    z.innerHTML=`<div style="font-size:20px;margin-bottom:4px">✓</div>${inp.files[0].name}`;
+  }
+}
+function createJob(){
+  const addr=document.getElementById('newJobAddress').value.trim();
+  const sales=document.getElementById('newJobSales').value;
+  const customer=document.getElementById('newJobCustomer').value.trim();
+  if(!addr||!sales){alert('Please enter an address and select a sales person.');return;}
+  jobs.unshift({
+    id:nextId++,address:addr,customer,sales,status:'Pending',
+    date:new Date().toISOString().slice(0,10),
+    notes:document.getElementById('newJobNotes').value.trim(),
+    planFile:document.getElementById('plansFile').files[0]?.name||'',
+    hasLayout:false,hasCutList:false,cutList:null
+  });
+  closeModal('newJobModal');
+  ['newJobAddress','newJobCustomer','newJobNotes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('newJobSales').value='';
+  document.getElementById('plansFile').value='';
+  document.getElementById('plansZone').classList.remove('has-file');
+  document.getElementById('plansZone').innerHTML='<div style="font-size:24px;margin-bottom:6px">📄</div>Click to upload plans PDF';
+  renderJobs();
+}
+
+function setUser(){
+  const v=document.getElementById('userSelect').value;if(!v)return;
+  currentUser=v;
+  document.getElementById('userNameEl').textContent=v;
+  document.getElementById('avatarEl').textContent=v.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  closeModal('userModal');
+}
+
+function checkAdminPw(){
+  if(document.getElementById('adminPwInput').value===ADMIN_PW){
+    document.getElementById('adminGate').style.display='none';
+    document.getElementById('adminPanel').style.display='block';
+    renderAdminJobs();renderSalesPersonList();updateSyncPanel();
+  } else { document.getElementById('pwError').style.display='block'; }
+}
+function lockAdmin(){
+  document.getElementById('adminGate').style.display='block';
+  document.getElementById('adminPanel').style.display='none';
+  document.getElementById('adminPwInput').value='';
+  document.getElementById('pwError').style.display='none';
+}
+function renderAdminJobs(){
+  document.getElementById('adminJobList').innerHTML=jobs.map(j=>`
+    <div class="job-card" style="margin-bottom:8px">
+      <div class="job-top"><div><div class="job-address">${j.address}</div><div class="job-customer">${j.customer||'—'}</div></div>${badge(j.status)}</div>
+      <div class="job-meta" style="margin-bottom:10px"><span>👤 ${j.sales}</span><span>📅 ${j.date}</span></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn sm" onclick="openEditJob(${j.id})">✏ Edit</button>
+        <button class="btn sm danger" onclick="adminDelete(${j.id})">🗑 Delete</button>
+      </div>
+    </div>`).join('');
+}
+function openEditJob(id){
+  editingJobId=id;const j=jobs.find(x=>x.id===id);
+  rebuildSelects();
+  document.getElementById('editAddress').value=j.address;
+  document.getElementById('editCustomer').value=j.customer||'';
+  document.getElementById('editSales').value=j.sales;
+  document.getElementById('editStatus').value=j.status;
+  document.getElementById('editNotes').value=j.notes||'';
+  openModal('editJobModal');
+}
+function saveEdit(){
+  const j=jobs.find(x=>x.id===editingJobId);if(!j)return;
+  j.address=document.getElementById('editAddress').value.trim()||j.address;
+  j.customer=document.getElementById('editCustomer').value.trim();
+  j.sales=document.getElementById('editSales').value;
+  j.status=document.getElementById('editStatus').value;
+  j.notes=document.getElementById('editNotes').value.trim();
+  closeModal('editJobModal');renderJobs();renderAdminJobs();
+}
+function deleteEditJob(){
+  if(!confirm('Delete this job permanently?'))return;
+  jobs=jobs.filter(x=>x.id!==editingJobId);
+  closeModal('editJobModal');renderJobs();renderAdminJobs();
+}
+function adminDelete(id){
+  if(!confirm('Delete this job permanently?'))return;
+  jobs=jobs.filter(x=>x.id!==id);renderJobs();renderAdminJobs();
+}
+
+function renderSalesPersonList(){
+  document.getElementById('salespersonList').innerHTML=salesPeople.map((sp,i)=>`
+    <div class="salesperson-row">
+      <span style="font-weight:500;font-size:13px">${sp}</span>
+      <button class="btn sm danger" onclick="removeSalesPerson(${i})">Remove</button>
+    </div>`).join('');
+}
+function addSalesPerson(){
+  const inp=document.getElementById('newSpInput');const name=inp.value.trim();
+  if(!name)return;
+  if(salesPeople.includes(name)){alert('That name already exists.');return;}
+  salesPeople.push(name);inp.value='';
+  renderSalesPersonList();rebuildSalesFilters();rebuildSelects();
+}
+function removeSalesPerson(i){
+  if(!confirm(`Remove "${salesPeople[i]}" from the list?`))return;
+  salesPeople.splice(i,1);
+  renderSalesPersonList();rebuildSalesFilters();rebuildSelects();
+}
+
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+function showPage(name,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if(btn)btn.classList.add('active');
+}
+function showTab(id,el){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');el.classList.add('active');
+}
+
+rebuildSelects();rebuildSalesFilters();renderJobs();updateSyncPanel();
+</script>
+</body>
+</html>
