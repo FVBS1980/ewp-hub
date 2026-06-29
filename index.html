@@ -435,7 +435,22 @@ async function runSync(){
           matchedJobs++;
           const upd={};
           if(isLayout){upd.has_layout=true;upd.layout_url=file.webViewLink;}
-          if(isMaterial)upd.has_cut_list=true;
+          if(isMaterial){
+            // Call Netlify function to parse the material list PDF
+            try{
+              log.textContent='Parsing material list for '+matchedJob.address+'...';
+              const parseResp=await fetch('/.netlify/functions/parse-cutlist',{
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({fileId:file.id,gdriveToken:gdriveToken})
+              });
+              const parseData=await parseResp.json();
+              if(parseData.success&&parseData.cutList){
+                upd.has_cut_list=true;
+                upd.cut_list=parseData.cutList;
+              }
+            }catch(parseErr){console.error('Parse error:',parseErr);}
+          }
           const updatedLayout=isLayout?true:matchedJob.hasLayout;
           const updatedCutList=isMaterial?true:matchedJob.hasCutList;
           if(updatedLayout&&updatedCutList)upd.status='Ready';
