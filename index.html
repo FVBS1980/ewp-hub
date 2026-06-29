@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EWP Hub</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root{
+  --bg:#F5F4F1;--surface:#FFF;--surface2:#EFEDE8;--border:#E0DDD6;--border2:#CCCAB8;
+  --text:#1C1B18;--text2:#6B6860;--text3:#9B9890;
+  --accent:#1A5FA8;--accent-light:#E8F0FA;--accent-dark:#0F3D6E;
+  --green:#2D7A3A;--green-light:#E6F4E9;--amber:#92600A;--amber-light:#FEF3E2;
+  --red:#C0392B;--red-light:#FDECEB;
+  --font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono','Fira Code',monospace;
+  --radius:8px;--radius-lg:12px;
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:0 4px 12px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{font-size:15px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:center;gap:8px}
+.logo-icon{width:28px;height:28px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800}
+.nav{display:flex;gap:2px}
+.nav-btn{padding:6px 14px;border-radius:6px;border:none;background:transparent;font-size:13px;cursor:pointer;color:var(--text2);font-family:var(--font);font-weight:500;transition:all .15s}
+.nav-btn:hover{background:var(--surface2);color:var(--text)}
+.nav-btn.active{background:var(--accent-light);color:var(--accent)}
+.user-pill{display:flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500}
+.user-pill:hover{border-color:var(--border2)}
+.avatar{width:24px;height:24px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff}
+.content{padding:24px;max-width:1100px;margin:0 auto}
+.page{display:none}.page.active{display:block}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-size:13px;cursor:pointer;color:var(--text);font-family:var(--font);font-weight:500;transition:all .15s;white-space:nowrap}
+.btn:hover{background:var(--surface2);border-color:var(--border2)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.primary:hover{background:var(--accent-dark)}
+.btn.danger{background:var(--red-light);color:var(--red);border-color:#F5C6C3}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn.ms{background:#0078D4;color:#fff;border-color:#0078D4;gap:8px}
+.btn.ms:hover{background:#006CBE}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.7}
+.badge-pending{background:var(--amber-light);color:var(--amber)}
+.badge-ready{background:var(--green-light);color:var(--green)}
+.section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title{font-size:17px;font-weight:600;letter-spacing:-.3px}
+.section-sub{font-size:13px;color:var(--text2);margin-top:2px}
+.filter-section{margin-bottom:16px;display:flex;flex-direction:column;gap:8px}
+.filter-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.filter-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-right:4px;white-space:nowrap}
+.filter-chip{padding:5px 12px;border-radius:20px;border:1px solid var(--border);font-size:12px;font-weight:500;cursor:pointer;background:var(--surface);color:var(--text2);transition:all .15s;white-space:nowrap}
+.filter-chip:hover{border-color:var(--border2);color:var(--text)}
+.filter-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.job-grid{display:grid;gap:10px}
+.job-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;cursor:pointer;transition:all .15s}
+.job-card:hover{border-color:var(--border2);box-shadow:var(--shadow)}
+.job-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:12px}
+.job-address{font-weight:600;font-size:14px}
+.job-customer{font-size:12px;color:var(--text2);margin-top:2px}
+.job-meta{display:flex;align-items:center;gap:12px;font-size:12px;color:var(--text2);flex-wrap:wrap;margin-bottom:8px}
+.files-indicator{display:flex;gap:6px}
+.file-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:var(--green-light);color:var(--green)}
+.file-tag.missing{background:var(--surface2);color:var(--text3)}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius-lg);border:1px solid var(--border);padding:24px;width:500px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-md)}
+.modal h2{font-size:16px;font-weight:600;margin-bottom:18px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:14px;font-family:var(--font)}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent)}
+.field textarea{min-height:80px;resize:vertical}
+.upload-zone{border:1.5px dashed var(--border2);border-radius:var(--radius);padding:20px;text-align:center;cursor:pointer;font-size:13px;color:var(--text2);transition:all .15s}
+.upload-zone:hover{background:var(--surface2);border-color:var(--accent)}
+.upload-zone.has-file{border-color:var(--green);background:var(--green-light);color:var(--green)}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.detail-field{background:var(--surface2);border-radius:var(--radius);padding:10px 12px}
+.detail-field .lbl{font-size:11px;color:var(--text3);font-weight:500;margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+.detail-field .val{font-size:13px;font-weight:600}
+.notes-section{margin-bottom:16px}
+.notes-section .lbl{font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+.notes-row{display:flex;gap:8px;align-items:flex-start}
+.notes-row textarea{flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:var(--font);resize:vertical;min-height:70px;background:var(--surface);color:var(--text)}
+.notes-row textarea:focus{outline:none;border-color:var(--accent)}
+.cut-table{width:100%;border-collapse:collapse;font-size:13px}
+.cut-table th{text-align:left;padding:7px 10px;font-size:11px;font-weight:600;color:var(--text2);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.04em}
+.cut-table td{padding:8px 10px;border-bottom:1px solid var(--border)}
+.cut-table tr:last-child td{border-bottom:none}
+.cut-table tr:hover td{background:var(--surface2)}
+.sku{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600}
+.tag-chip{font-family:var(--mono);font-size:12px;font-weight:700;color:#444;background:#f0f0f0;padding:2px 6px;border-radius:4px}
+.qty-cell{font-weight:700;font-size:15px;text-align:center}
+.special{background:var(--amber-light);color:var(--amber);padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600}
+.cat-hdr{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;padding:12px 0 6px;border-bottom:1px solid var(--border);margin-bottom:2px}
+.floor-div{border:none;border-top:2px solid var(--border);margin:24px 0}
+.sync-panel{border-radius:var(--radius-lg);padding:16px;margin-bottom:20px;display:flex;align-items:center;gap:12px}
+.sync-panel.connected{background:var(--accent-light);border:1px solid #C5D8F5}
+.sync-panel.disconnected{background:#FFF8F0;border:1px solid #FFD9B0}
+.sync-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex-shrink:0}
+.sync-icon.connected{background:var(--accent)}.sync-icon.disconnected{background:#E87722}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;margin-right:4px;animation:pulse 2s infinite}
+.db-status{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:var(--radius);font-size:12px;font-weight:500;margin-bottom:16px}
+.db-status.ok{background:var(--green-light);color:var(--green)}
+.db-status.err{background:var(--red-light);color:var(--red)}
+.db-status.loading{background:var(--surface2);color:var(--text2)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.empty{text-align:center;padding:48px 20px;color:var(--text2)}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:.3}
+.empty-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px}
+.pw-gate{text-align:center;padding:40px 24px}
+.pw-gate input{width:200px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;text-align:center;font-family:var(--font);display:block;margin:0 auto 12px}
+.tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:20px}
+.tab{padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-content{display:none}.tab-content.active{display:block}
+.detail-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px}
+.admin-section{margin-bottom:28px}
+.admin-section-title{font-size:12px;font-weight:700;color:var(--text3);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.05em}
+.salesperson-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface2);border-radius:var(--radius);margin-bottom:6px}
+.add-sp-row{display:flex;gap:8px;margin-top:12px}
+.add-sp-row input{flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:var(--font)}
+.add-sp-row input:focus{outline:none;border-color:var(--accent)}
+.code-block{background:#1e1e2e;color:#cdd6f4;padding:12px 14px;border-radius:var(--radius);font-family:var(--mono);font-size:12px;margin-top:8px;white-space:pre;overflow-x:auto;line-height:1.6}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border-radius:var(--radius-lg);overflow:hidden;border:1px solid var(--border)}
+.cal-day-header{background:var(--surface2);padding:8px;text-align:center;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em}
+.cal-day{background:var(--surface);min-height:100px;padding:8px;vertical-align:top}
+.cal-day.other-month{background:var(--bg)}
+.cal-day.today{background:var(--accent-light)}
+.cal-day-num{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px}
+.cal-day.today .cal-day-num{color:var(--accent);font-size:13px}
+.cal-job{border-radius:4px;padding:3px 7px;font-size:11px;font-weight:500;margin-bottom:3px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .15s}
+.cal-job.ready{background:var(--green);color:#fff}.cal-job.ready:hover{background:#236030}
+.cal-job.pending{background:var(--amber);color:#fff}.cal-job.pending:hover{background:#7a5008}
+.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.8);z-index:500;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text2);flex-direction:column;gap:12px}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:600px){.content{padding:16px}.detail-grid{grid-template-columns:1fr}.topbar{padding:0 16px}}
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay" class="loading-overlay">
+  <div class="spinner"></div>
+  <div>Connecting to database...</div>
+</div>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:16px">
+    <div class="logo"><div class="logo-icon">EW</div>EWP Hub</div>
+    <nav class="nav">
+      <button class="nav-btn active" onclick="showPage('jobs',this)">Jobs</button>
+      <button class="nav-btn" onclick="showPage('calendar',this)">Calendar</button>
+      <button class="nav-btn" onclick="showPage('admin',this)">Admin</button>
+    </nav>
+  </div>
+  <div class="user-pill" onclick="openModal('userModal')">
+    <div class="avatar" id="avatarEl">--</div>
+    <span id="userNameEl">Select user</span>
+    <span style="color:var(--text3);font-size:11px">▾</span>
+  </div>
+</div>
+
+<div class="content">
+
+<!-- JOBS -->
+<div class="page active" id="page-jobs">
+  <div class="section-hdr">
+    <div><div class="section-title">Jobs</div><div class="section-sub">All active floor system projects</div></div>
+    <button class="btn primary" onclick="openModal('newJobModal')">＋ New job</button>
+  </div>
+  <div class="sync-panel disconnected" id="syncPanel">
+    <div class="sync-icon disconnected" id="syncIconEl">☁</div>
+    <div style="flex:1">
+      <div style="font-weight:600;font-size:13px;margin-bottom:2px" id="syncTitleEl">OneDrive not connected</div>
+      <div style="font-size:12px;color:var(--text2)" id="syncSubEl">Sign in with Microsoft to enable automatic sync</div>
+    </div>
+    <button class="btn ms" id="syncActionBtn" onclick="msSignIn()">
+      <svg width="16" height="16" viewBox="0 0 21 21" fill="none"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>
+      Sign in with Microsoft
+    </button>
+  </div>
+  <div class="filter-section">
+    <div class="filter-bar" id="statusFilterBar">
+      <span class="filter-label">Status</span>
+      <div class="filter-chip active" onclick="filterStatus('all',this)">All</div>
+      <div class="filter-chip" onclick="filterStatus('Pending',this)">Pending</div>
+      <div class="filter-chip" onclick="filterStatus('Ready',this)">Ready</div>
+    </div>
+    <div class="filter-bar" id="salesFilterBar"><span class="filter-label">Sales person</span></div>
+  </div>
+  <div class="job-grid" id="jobGrid"></div>
+</div>
+
+<!-- CALENDAR -->
+<div class="page" id="page-calendar">
+  <div class="section-hdr">
+    <div><div class="section-title">Shipping calendar</div><div class="section-sub">All scheduled ship dates</div></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn" onclick="prevMonth()">‹</button>
+      <div style="font-size:15px;font-weight:600;min-width:160px;text-align:center" id="calMonthLabel"></div>
+      <button class="btn" onclick="nextMonth()">›</button>
+      <button class="btn" onclick="goToday()">Today</button>
+    </div>
+  </div>
+  <div id="calGrid"></div>
+</div>
+
+<!-- ADMIN -->
+<div class="page" id="page-admin">
+  <div id="adminGate">
+    <div class="pw-gate">
+      <div style="font-size:36px;margin-bottom:12px">🔒</div>
+      <div style="font-weight:600;font-size:16px;margin-bottom:4px">Admin access</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Enter your password to continue</div>
+      <input type="password" id="adminPwInput" placeholder="Password" onkeydown="if(event.key==='Enter')checkAdminPw()"/>
+      <button class="btn primary" onclick="checkAdminPw()">Unlock</button>
+      <div id="pwError" style="font-size:12px;color:var(--red);margin-top:10px;display:none">Incorrect password</div>
+    </div>
+  </div>
+  <div id="adminPanel" style="display:none">
+    <div class="section-hdr">
+      <div><div class="section-title">Admin panel</div><div class="section-sub">Jobs, sales people, and OneDrive settings</div></div>
+      <button class="btn" onclick="lockAdmin()">🔒 Lock</button>
+    </div>
+    <div class="detail-panel">
+      <div class="tabs">
+        <div class="tab active" onclick="showTab('tab-jobs',this)">All jobs</div>
+        <div class="tab" onclick="showTab('tab-salespeople',this)">Sales people</div>
+        <div class="tab" onclick="showTab('tab-onedrive',this)">OneDrive</div>
+      </div>
+      <div class="tab-content active" id="tab-jobs"><div id="adminJobList"></div></div>
+      <div class="tab-content" id="tab-salespeople">
+        <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Add or remove sales people. Changes apply immediately across the whole app.</p>
+        <div id="salespersonList"></div>
+        <div class="add-sp-row">
+          <input type="text" id="newSpInput" placeholder="Enter new sales person name..." onkeydown="if(event.key==='Enter')addSalesPerson()"/>
+          <button class="btn primary" onclick="addSalesPerson()">＋ Add</button>
+        </div>
+      </div>
+      <div class="tab-content" id="tab-onedrive">
+        <div class="admin-section">
+          <div class="admin-section-title">Microsoft account</div>
+          <div id="odAccountStatus"></div>
+        </div>
+        <div class="admin-section">
+          <div class="admin-section-title">Folder structure</div>
+          <div class="code-block">OneDrive/
+└── EWP Jobs/
+    ├── Mike Freeman/
+    │   ├── 123 Oak Street Material List.pdf
+    │   └── 123 Oak Street Layout.pdf
+    └── Tingey Deol/
+        └── ...</div>
+          <div style="margin-top:10px;padding:10px 14px;background:var(--amber-light);border-radius:var(--radius);font-size:12px;color:var(--amber)">
+            <strong>Naming rule:</strong> Include the job address in the filename. Add "Layout" or "Material List" to tell them apart.
+          </div>
+        </div>
+        <div class="admin-section">
+          <div class="admin-section-title">Sync now</div>
+          <button class="btn primary" onclick="runSync()">🔄 Sync now</button>
+          <div id="syncLog" style="margin-top:12px;font-size:12px;color:var(--text2)"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- MODALS -->
+<div class="modal-bg" id="userModal">
+  <div class="modal" style="width:320px">
+    <h2>Who are you?</h2>
+    <div class="field"><label>Select your name</label><select id="userSelect"></select></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('userModal')">Cancel</button>
+      <button class="btn primary" onclick="setUser()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="newJobModal">
+  <div class="modal">
+    <h2>New job</h2>
+    <div class="field"><label>Sales person</label><select id="newJobSales"></select></div>
+    <div class="field"><label>Customer name</label><input type="text" id="newJobCustomer" placeholder="e.g. Paddington Properties"/></div>
+    <div class="field"><label>Job address <span style="color:var(--text3);font-weight:400">(must match your OneDrive filenames)</span></label><input type="text" id="newJobAddress" placeholder="e.g. 123 Oak Street, Surrey BC"/></div>
+    <div class="field"><label>Ship date</label><input type="date" id="newJobShipDate"/></div>
+    <div class="field">
+      <label>Upload plans PDF</label>
+      <div class="upload-zone" id="plansZone" onclick="document.getElementById('plansFile').click()">
+        <div style="font-size:24px;margin-bottom:6px">📄</div>Click to upload plans PDF
+      </div>
+      <input type="file" id="plansFile" accept=".pdf" style="display:none" onchange="handlePlanUpload(this)"/>
+    </div>
+    <div class="field"><label>Notes (optional)</label><textarea id="newJobNotes" placeholder="Any special requirements..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('newJobModal')">Cancel</button>
+      <button class="btn primary" id="createJobBtn" onclick="createJob()">Create job</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="jobDetailModal">
+  <div class="modal" style="width:600px"><div id="jobDetailContent"></div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal('jobDetailModal')">Close</button></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="editJobModal">
+  <div class="modal">
+    <h2>Edit job</h2>
+    <div class="field"><label>Address</label><input type="text" id="editAddress"/></div>
+    <div class="field"><label>Customer name</label><input type="text" id="editCustomer"/></div>
+    <div class="field"><label>Sales person</label><select id="editSales"></select></div>
+    <div class="field"><label>Status</label><select id="editStatus"><option>Pending</option><option>Ready</option></select></div>
+    <div class="field"><label>Ship date</label><input type="date" id="editShipDate"/></div>
+    <div class="field"><label>Notes</label><textarea id="editNotes"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn danger" onclick="deleteEditJob()">🗑 Delete</button>
+      <button class="btn" onclick="closeModal('editJobModal')">Cancel</button>
+      <button class="btn primary" onclick="saveEdit()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="cutListModal">
+  <div class="modal" style="width:700px">
+    <div id="cutListContent"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="printCutList()">🖨 Print</button>
+      <button class="btn" onclick="closeModal('cutListModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="shipDateModal">
+  <div class="modal" style="width:320px">
+    <h2>Edit ship date</h2>
+    <div class="field"><label>Ship date</label><input type="date" id="shipDateInput"/></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('shipDateModal')">Cancel</button>
+      <button class="btn danger" onclick="clearShipDate()">Clear date</button>
+      <button class="btn primary" onclick="saveShipDate()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── SUPABASE ──
+const SUPABASE_URL='https://ujnamkyxcayiohriaidy.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqbmFta3l4Y2F5aW9ocmlhaWR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1Nzc2MTYsImV4cCI6MjA5ODE1MzYxNn0.Yxrz2K1eqq7jUALRStn1YpZusyXVE1lfw9UxygNynKM';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+// ── GOOGLE DRIVE ──
+const GDRIVE_CLIENT_ID='2373024934-0jcid7jgpiaiqidledahht97ob71nb50.apps.googleusercontent.com';
+const GDRIVE_SCOPES='https://www.googleapis.com/auth/drive.readonly';
+const FOLDER_NAME='EWP Jobs';
+let gdriveToken=null,gdriveUser=null,gdriveTokenExpiry=null;
+
+function googleSignIn(){
+  const client=google.accounts.oauth2.initTokenClient({
+    client_id:GDRIVE_CLIENT_ID,
+    scope:GDRIVE_SCOPES,
+    callback:(resp)=>{
+      if(resp.error){console.error('Google sign in error:',resp);return;}
+      gdriveToken=resp.access_token;
+      // Store expiry time (tokens last 1 hour)
+      gdriveTokenExpiry=Date.now()+(55*60*1000);
+      gdriveUser={name:'EWP Hub',email:'fvbsewphub@gmail.com'};
+      updateSyncPanel();
+    }
+  });
+  client.requestAccessToken();
+}
+
+function ensureFreshToken(){
+  return new Promise((resolve)=>{
+    // If token is still valid, use it
+    if(gdriveToken&&gdriveTokenExpiry&&Date.now()<gdriveTokenExpiry){
+      resolve(gdriveToken);return;
+    }
+    // Otherwise request a new one silently
+    const client=google.accounts.oauth2.initTokenClient({
+      client_id:GDRIVE_CLIENT_ID,
+      scope:GDRIVE_SCOPES,
+      prompt:'none',
+      callback:(resp)=>{
+        if(resp.error||!resp.access_token){resolve(gdriveToken);return;}
+        gdriveToken=resp.access_token;
+        gdriveTokenExpiry=Date.now()+(55*60*1000);
+        resolve(gdriveToken);
+      }
+    });
+    client.requestAccessToken();
+  });
+}
+
+function googleSignOut(){
+  if(gdriveToken)google.accounts.oauth2.revoke(gdriveToken);
+  gdriveToken=null;gdriveUser=null;updateSyncPanel();
+}
+
+function updateSyncPanel(){
+  const panel=document.getElementById('syncPanel'),icon=document.getElementById('syncIconEl');
+  const title=document.getElementById('syncTitleEl'),sub=document.getElementById('syncSubEl'),btn=document.getElementById('syncActionBtn');
+  if(gdriveToken&&gdriveUser){
+    panel.className='sync-panel connected';icon.className='sync-icon connected';icon.textContent='☁';
+    title.innerHTML='<span class="sync-dot"></span>Google Drive connected — '+(gdriveUser.name||gdriveUser.email);
+    sub.textContent='Watching Google Drive EWP Jobs/ for new files.';
+    btn.className='btn sm';btn.innerHTML='Sign out';btn.onclick=googleSignOut;
+    document.getElementById('odAccountStatus').innerHTML='<div style="padding:12px;background:var(--green-light);border-radius:var(--radius);color:var(--green);font-size:13px;display:flex;align-items:center;gap:8px"><span>✓</span><div>Connected as '+(gdriveUser.name||gdriveUser.email)+'<br><span style="font-size:11px;opacity:.7">'+gdriveUser.email+'</span></div><button class="btn sm danger" style="margin-left:auto" onclick="googleSignOut()">Sign out</button></div>';
+  }else{
+    panel.className='sync-panel disconnected';icon.className='sync-icon disconnected';icon.textContent='☁';
+    title.textContent='Google Drive not connected';sub.textContent='Sign in with Google to enable automatic sync from your EWP Jobs folder';
+    btn.className='btn primary';btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24"><path fill="#fff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#fff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#fff" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#fff" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Sign in with Google';
+    btn.onclick=googleSignIn;
+    const odStatus=document.getElementById('odAccountStatus');
+    if(odStatus)odStatus.innerHTML='<div style="padding:12px;background:var(--amber-light);border-radius:var(--radius);color:var(--amber);font-size:13px">Not signed in. <button class="btn primary" onclick="googleSignIn()">Sign in with Google</button></div>';
+  }
+}
+
+async function runSync(){
+  if(!gdriveToken){alert('Please sign in with Google first.');return;}
+  const log=document.getElementById('syncLog');log.textContent='Scanning Google Drive...';
+  try{
+    const headers={Authorization:'Bearer '+gdriveToken};
+    // Find EWP Jobs folder
+    const rootResp=await fetch('https://www.googleapis.com/drive/v3/files?q=name%3D%22'+encodeURIComponent(FOLDER_NAME)+'%22+and+mimeType%3D%22application%2Fvnd.google-apps.folder%22+and+trashed%3Dfalse&fields=files(id,name)',{headers});
+    const rootData=await rootResp.json();
+    if(!rootData.files||!rootData.files.length){log.innerHTML='<span style="color:var(--red)">Could not find "'+FOLDER_NAME+'" folder in Google Drive.</span>';return;}
+    const rootFolderId=rootData.files[0].id;
+
+    // Get sales person subfolders
+    const spResp=await fetch('https://www.googleapis.com/drive/v3/files?q=%22'+rootFolderId+'%22+in+parents+and+mimeType%3D%22application%2Fvnd.google-apps.folder%22+and+trashed%3Dfalse&fields=files(id,name)',{headers});
+    const spData=await spResp.json();
+    let filesFound=[],matchedJobs=0;
+
+    for(const spFolder of spData.files){
+      // Get PDFs in each sales person folder
+      const filesResp=await fetch('https://www.googleapis.com/drive/v3/files?q=%22'+spFolder.id+'%22+in+parents+and+name+contains+%22.pdf%22+and+trashed%3Dfalse&fields=files(id,name,webViewLink)',{headers});
+      const filesData=await filesResp.json();
+      for(const file of (filesData.files||[])){
+        const name=file.name;
+        const isLayout=/layout/i.test(name),isMaterial=/material list/i.test(name);
+        if(!isLayout&&!isMaterial)continue;
+        filesFound.push({name,salesPerson:spFolder.name,isLayout,isMaterial});
+        const matchedJob=jobs.find(j=>{
+          const addr=j.address.toLowerCase();
+          const fname=name.toLowerCase().replace(/layout|material list|\.pdf/gi,'').trim();
+          return addr.includes(fname)||fname.includes(addr.split(',')[0].toLowerCase().trim());
+        });
+        if(matchedJob){
+          matchedJobs++;
+          const upd={};
+          if(isLayout){upd.has_layout=true;upd.layout_url=file.webViewLink;}
+          if(isMaterial){
+            // Parse material list PDF directly in browser using pdf.js
+            try{
+              log.textContent='Parsing material list for '+matchedJob.address+'...';
+              // Download PDF from Google Drive
+              const pdfResp=await fetch('https://www.googleapis.com/drive/v3/files/'+file.id+'?alt=media',{headers});
+              if(pdfResp.ok){
+                const pdfBuf=await pdfResp.arrayBuffer();
+                const cutList=await parsePdfBuffer(pdfBuf);
+                if(cutList){
+                  upd.has_cut_list=true;
+                  upd.cut_list=cutList;
+                }
+              }
+            }catch(parseErr){console.error('Parse error:',parseErr);}
+          }
+          const updatedLayout=isLayout?true:matchedJob.hasLayout;
+          const updatedCutList=isMaterial?true:matchedJob.hasCutList;
+          if(updatedLayout&&updatedCutList)upd.status='Ready';
+          await sb.from('jobs').update(upd).eq('id',matchedJob.id);
+        }
+      }
+    }
+    const fileListEl=document.getElementById('odFileList');
+    if(fileListEl){
+      fileListEl.innerHTML=filesFound.length
+        ?'<div class="file-list">'+filesFound.map(f=>'<div class="file-row"><div><div style="font-weight:500">'+f.name+'</div><div style="color:var(--text3)">📁 '+f.salesPerson+' · '+(f.isLayout?'🖼 Layout':'📋 Material list')+'</div></div><span style="font-size:11px;background:var(--green-light);color:var(--green);padding:2px 8px;border-radius:4px;font-weight:500">Found</span></div>').join('')+'</div>'
+        :'<p style="font-size:13px;color:var(--text2)">No PDF files found yet.</p>';
+    }
+    log.innerHTML='<span style="color:var(--green)">✓ Sync complete — '+filesFound.length+' file'+(filesFound.length!==1?'s':'')+' found, '+matchedJobs+' job'+(matchedJobs!==1?'s':'')+' updated.</span>';
+    await loadJobs();
+  }catch(e){log.innerHTML='<span style="color:var(--red)">Sync error: '+e.message+'</span>';console.error(e);}
+}
+
+// ── APP STATE ──
+const ADMIN_PW='Boise123';
+let currentUser='',activeStatusFilter='all',activeSalesFilter='all',editingJobId=null,editingShipJobId=null;
+let jobs=[],salesPeople=[];
+const FIXED_USERS=['Ethan (Designer)','Beam Yard'];
+
+// ── LOAD DATA FROM SUPABASE ──
+async function loadSalesPeople(){
+  const {data,error}=await sb.from('sales_people').select('*').order('name');
+  if(error){console.error('Error loading sales people:',error);return;}
+  salesPeople=data.map(r=>r.name);
+  rebuildSelects();rebuildSalesFilters();
+}
+
+async function loadJobs(){
+  const {data,error}=await sb.from('jobs').select('*').order('created_at',{ascending:false});
+  if(error){console.error('Error loading jobs:',error);return;}
+  jobs=data.map(r=>({
+    id:r.id,address:r.address,customer:r.customer||'',
+    sales:r.sales_person,status:r.status,
+    date:r.created_at?r.created_at.slice(0,10):'',
+    shipDate:r.ship_date||'',notes:r.notes||'',
+    planFile:r.plan_file||'',hasLayout:r.has_layout||false,
+    hasCutList:r.has_cut_list||false,cutList:r.cut_list||null,layoutUrl:r.layout_url||null
+  }));
+  renderJobs();renderCalendar();
+}
+
+async function init(){
+  document.getElementById('loadingOverlay').style.display='flex';
+  await loadSalesPeople();
+  await loadJobs();
+  updateSyncPanel();
+  document.getElementById('loadingOverlay').style.display='none';
+}
+
+// ── REAL TIME UPDATES ──
+sb.channel('jobs-changes').on('postgres_changes',{event:'*',schema:'public',table:'jobs'},()=>{loadJobs();}).subscribe();
+sb.channel('sp-changes').on('postgres_changes',{event:'*',schema:'public',table:'sales_people'},()=>{loadSalesPeople();}).subscribe();
+
+// ── SELECTS ──
+function rebuildSelects(){
+  const all=[...FIXED_USERS,...salesPeople];
+  const us=document.getElementById('userSelect'),ucur=us.value;
+  us.innerHTML='<option value="">-- Select --</option>'+all.map(n=>'<option'+(n===ucur?' selected':'')+'>'+n+'</option>').join('');
+  ['newJobSales','editSales'].forEach(id=>{
+    const el=document.getElementById(id),cur=el.value;
+    el.innerHTML='<option value="">-- Select --</option>'+salesPeople.map(n=>'<option'+(n===cur?' selected':'')+'>'+n+'</option>').join('');
+  });
+}
+
+function rebuildSalesFilters(){
+  const bar=document.getElementById('salesFilterBar');
+  bar.innerHTML='<span class="filter-label">Sales person</span>';
+  const a=document.createElement('div');a.className='filter-chip'+(activeSalesFilter==='all'?' active':'');a.textContent='All';a.onclick=function(){filterSales('all',this);};bar.appendChild(a);
+  salesPeople.forEach(sp=>{const c=document.createElement('div');c.className='filter-chip'+(activeSalesFilter===sp?' active':'');c.textContent=sp;c.onclick=function(){filterSales(sp,this);};bar.appendChild(c);});
+}
+
+function badge(s){return '<span class="badge '+(s==='Ready'?'badge-ready':'badge-pending')+'">'+s+'</span>';}
+
+// ── RENDER JOBS ──
+function renderJobs(){
+  const grid=document.getElementById('jobGrid');
+  const list=jobs.filter(j=>(activeStatusFilter==='all'||j.status===activeStatusFilter)&&(activeSalesFilter==='all'||j.sales===activeSalesFilter));
+  if(!list.length){grid.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-title">No jobs found</div><div class="empty-sub">Try a different filter or create a new job</div></div>';return;}
+  grid.innerHTML=list.map(j=>{
+    const shipStr=j.shipDate?'<span style="color:var(--accent);font-weight:600">🚚 Ships '+j.shipDate+'</span>':'';
+    return '<div class="job-card" onclick="openJobDetail(\''+j.id+'\')">'
+      +'<div class="job-top"><div><div class="job-address">'+j.address+'</div><div class="job-customer">'+(j.customer||'—')+'</div></div>'+badge(j.status)+'</div>'
+      +'<div class="job-meta"><span>👤 '+j.sales+'</span><span>📅 '+j.date+'</span>'+shipStr+'</div>'
+      +'<div class="files-indicator">'
+      +'<div class="file-tag '+(j.planFile?'':'missing')+'">'+(j.planFile?'✓':'○')+' Plans</div>'
+      +'<div class="file-tag '+(j.hasLayout?'':'missing')+'">'+(j.hasLayout?'✓':'○')+' Layout</div>'
+      +'<div class="file-tag '+(j.hasCutList?'':'missing')+'">'+(j.hasCutList?'✓':'○')+' Cut list</div>'
+      +'</div></div>';
+  }).join('');
+}
+function filterStatus(f,el){activeStatusFilter=f;document.querySelectorAll('#statusFilterBar .filter-chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');renderJobs();}
+function filterSales(f,el){activeSalesFilter=f;document.querySelectorAll('#salesFilterBar .filter-chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');renderJobs();}
+
+// ── JOB DETAIL ──
+function openJobDetail(id){
+  const j=jobs.find(x=>x.id===id);if(!j)return;
+  let html='';
+  html+='<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:12px">';
+  html+='<div><div style="font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Job details</div>';
+  html+='<div style="font-size:18px;font-weight:700;letter-spacing:-.3px">'+j.address+'</div>';
+  html+='<div style="font-size:13px;color:var(--text2);margin-top:2px">'+(j.customer||'')+'</div></div>'+badge(j.status)+'</div>';
+  html+='<div class="detail-grid">';
+  html+='<div class="detail-field"><div class="lbl">Sales person</div><div class="val">'+j.sales+'</div></div>';
+  html+='<div class="detail-field"><div class="lbl">Created</div><div class="val">'+j.date+'</div></div>';
+  html+='<div class="detail-field"><div class="lbl">Ship date</div><div class="val" style="display:flex;align-items:center;gap:8px">'+(j.shipDate?'<span style="color:var(--accent)">🚚 '+j.shipDate+'</span>':'<span style="color:var(--text3)">Not set</span>')+'<button class="btn sm" onclick="editShipDate(\''+j.id+'\')" style="padding:3px 8px;font-size:11px">Edit</button></div></div>';
+  html+='<div class="detail-field"><div class="lbl">Plans</div><div class="val">'+(j.planFile?'<span style="color:var(--green)">✓ Uploaded</span>':'<span style="color:var(--text3)">Not uploaded</span>')+'</div></div>';
+  html+='<div class="detail-field"><div class="lbl">Layout</div><div class="val">'+(j.hasLayout?'<span style="color:var(--green)">✓ Ready</span>':'<span style="color:var(--text3)">Waiting for OneDrive</span>')+'</div></div>';
+  html+='</div>';
+  html+='<div class="notes-section"><div class="lbl">Notes</div><div class="notes-row">';
+  html+='<textarea id="jobDetailNotes">'+(j.notes||'')+'</textarea>';
+  html+='<button class="btn sm primary" id="saveNotesBtn" onclick="saveJobNotes(\''+j.id+'\')">Save</button>';
+  html+='</div></div>';
+  html+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
+  if(j.hasCutList)html+='<button class="btn primary" onclick="viewCutList(\''+j.id+'\');closeModal(\'jobDetailModal\')">📋 View cut list</button>';
+  if(j.planFile)html+='<button class="btn" onclick="alert(\'Plans PDF would open here\')">⬇ Download plans</button>';
+  if(j.hasLayout)html+='<button class="btn" onclick="'+(j.layoutUrl?'window.open(\''+j.layoutUrl+'\',\'_blank\')':'alert(\'Layout not yet synced\')')+'">⬇ Download layout</button>';
+  html+='</div>';
+  document.getElementById('jobDetailContent').innerHTML=html;
+  openModal('jobDetailModal');
+}
+
+async function saveJobNotes(id){
+  const notes=document.getElementById('jobDetailNotes').value;
+  await sb.from('jobs').update({notes}).eq('id',id);
+  const j=jobs.find(x=>x.id===id);if(j)j.notes=notes;
+  renderJobs();
+  const btn=document.getElementById('saveNotesBtn');
+  btn.textContent='Saved ✓';btn.style.background='var(--green)';
+  setTimeout(()=>{btn.textContent='Save';btn.style.background='';},1500);
+}
+
+// ── SHIP DATE ──
+function editShipDate(id){
+  editingShipJobId=id;
+  const j=jobs.find(x=>x.id===id);if(!j)return;
+  document.getElementById('shipDateInput').value=j.shipDate||'';
+  openModal('shipDateModal');
+}
+async function saveShipDate(){
+  const shipDate=document.getElementById('shipDateInput').value||null;
+  await sb.from('jobs').update({ship_date:shipDate}).eq('id',editingShipJobId);
+  closeModal('shipDateModal');closeModal('jobDetailModal');
+  await loadJobs();openJobDetail(editingShipJobId);
+}
+async function clearShipDate(){
+  await sb.from('jobs').update({ship_date:null}).eq('id',editingShipJobId);
+  closeModal('shipDateModal');closeModal('jobDetailModal');
+  await loadJobs();openJobDetail(editingShipJobId);
+}
+
+// ── CUT LIST ──
+function viewCutList(id){
+  const j=jobs.find(x=>x.id===id);if(!j||!j.cutList)return;
+  const cl=j.cutList;
+  let html='<div style="margin-bottom:16px"><div style="font-size:11px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Cut list</div>';
+  html+='<div style="font-size:18px;font-weight:700;letter-spacing:-.3px">'+j.address+'</div>';
+  html+='<div style="font-size:13px;color:var(--text2);margin-top:2px">'+j.customer+' · '+j.sales+' · '+j.date+'</div></div>';
+  html+='<div style="background:var(--green-light);border-radius:var(--radius);padding:10px 14px;font-size:12px;color:var(--green);margin-bottom:16px">✓ Enter into Eagle line by line. Tags match the layout drawing.</div>';
+  Object.keys(cl.floors).forEach((fk,fi)=>{
+    const f=cl.floors[fk];
+    if(fi>0)html+='<hr class="floor-div">';
+    html+='<div style="display:inline-block;font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-light);padding:4px 14px;border-radius:20px;margin-bottom:16px">'+fk+'</div>';
+    if(f.rimFt>0){
+      const pcs=Math.ceil(f.rimFt/16);
+      html+='<div class="cat-hdr">Rimboard</div><table class="cut-table"><thead><tr><th style="width:16%">SKU</th><th style="width:38%">Description</th><th style="width:8%">Tag</th><th style="width:9%">Qty</th><th style="width:10%">Unit</th><th>Note</th></tr></thead><tbody>';
+      html+='<tr><td><span class="sku">'+f.rimSku+'</span></td><td>'+f.rimProd+'</td><td></td><td class="qty-cell">'+pcs+'</td><td>EA</td><td style="font-size:11px;color:var(--text3)">16\' pcs ('+f.rimFt+'\' ÷ 16)</td></tr></tbody></table>';
+    }
+    if(f.joists&&f.joists.length){
+      html+='<div class="cat-hdr">Joists</div><table class="cut-table"><thead><tr><th style="width:16%">SKU</th><th style="width:38%">Description</th><th style="width:8%">Tag</th><th style="width:9%">Qty</th><th style="width:10%">Length</th><th></th></tr></thead><tbody>';
+      f.joists.forEach(jt=>html+='<tr><td>'+(jt.sku?'<span class="sku">'+jt.sku+'</span>':'<span class="special">Special order</span>')+'</td><td>'+jt.product+'</td><td>'+(jt.tag?'<span class="tag-chip">'+jt.tag+'</span>':'')+'</td><td class="qty-cell">'+jt.qty+'</td><td>'+jt.length+'\'</td><td></td></tr>');
+      html+='</tbody></table>';
+    }
+    if(f.beams&&f.beams.length){
+      html+='<div class="cat-hdr">Beams</div><table class="cut-table"><thead><tr><th style="width:16%">SKU</th><th style="width:38%">Description</th><th style="width:8%">Tag</th><th style="width:9%">Qty</th><th style="width:10%">Length</th><th></th></tr></thead><tbody>';
+      f.beams.forEach(b=>html+='<tr><td>'+(b.sku?'<span class="sku">'+b.sku+'</span>':'<span class="special">Special order</span>')+'</td><td>'+b.product+'</td><td>'+(b.tag?'<span class="tag-chip">'+b.tag+'</span>':'')+'</td><td class="qty-cell">'+b.qty+'</td><td>'+b.length+'\'</td><td></td></tr>');
+      html+='</tbody></table>';
+    }
+    if(f.posts&&f.posts.length){
+      html+='<div class="cat-hdr">Posts</div><table class="cut-table"><thead><tr><th style="width:16%">SKU</th><th style="width:38%">Description</th><th style="width:8%">Tag</th><th style="width:9%">Qty</th><th style="width:10%">Length</th><th></th></tr></thead><tbody>';
+      f.posts.forEach(p=>html+='<tr><td>'+(p.sku?'<span class="sku">'+p.sku+'</span>':'<span class="special">Special order</span>')+'</td><td>'+p.product+'</td><td>'+(p.tag?'<span class="tag-chip">'+p.tag+'</span>':'')+'</td><td class="qty-cell">'+p.qty+'</td><td>'+p.length+'\'</td><td></td></tr>');
+      html+='</tbody></table>';
+    }
+    if(f.decking){
+      html+='<div class="cat-hdr">Decking</div><table class="cut-table"><thead><tr><th style="width:16%">SKU</th><th style="width:38%">Description</th><th style="width:8%">Tag</th><th style="width:9%">Qty</th><th style="width:10%">Unit</th><th></th></tr></thead><tbody>';
+      html+='<tr><td><span class="sku">2332OSB</span></td><td>3/4" 4x8 OSB (Floor Decking)</td><td></td><td class="qty-cell">'+f.decking+'</td><td>EA</td><td></td></tr></tbody></table>';
+    }
+    if(f.connectors&&Object.keys(f.connectors).length){
+      html+='<div class="cat-hdr">Connectors</div><table class="cut-table"><thead><tr><th style="width:16%">SKU</th><th style="width:38%">Description</th><th style="width:8%">Tag</th><th style="width:9%">Qty</th><th style="width:10%">Unit</th><th></th></tr></thead><tbody>';
+      Object.entries(f.connectors).forEach(([prod,qty])=>{
+        const sku=f.connectorSkus&&f.connectorSkus[prod]?f.connectorSkus[prod]:null;
+        html+='<tr><td>'+(sku?'<span class="sku">'+sku+'</span>':'<span class="special">Special order</span>')+'</td><td>'+prod+'</td><td></td><td class="qty-cell">'+qty+'</td><td>EA</td><td></td></tr>';
+      });
+      html+='</tbody></table>';
+    }
+  });
+  document.getElementById('cutListContent').innerHTML=html;
+  openModal('cutListModal');
+}
+
+function printCutList(){
+  const html=document.getElementById('cutListContent').innerHTML;
+  const win=window.open('','_blank');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Cut List</title><style>body{font-family:system-ui,sans-serif;font-size:12px;color:#1a1a1a;padding:16px;margin:0}table{width:100%;border-collapse:collapse;margin-bottom:4px;page-break-inside:auto}thead{display:table-header-group}th{text-align:left;padding:5px 8px;font-size:10px;font-weight:600;color:#666;border-bottom:1px solid #ccc;background:#f5f5f5;text-transform:uppercase;-webkit-print-color-adjust:exact;print-color-adjust:exact}td{padding:5px 8px;border-bottom:1px solid #eee;font-size:11px}tr{page-break-inside:avoid}tr:last-child td{border-bottom:none}.sku{font-family:monospace;font-size:11px;color:#185FA5;font-weight:600}.tag-chip{font-family:monospace;font-size:10px;font-weight:700;color:#444;background:#f0f0f0;padding:1px 5px;border-radius:3px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.qty-cell{font-weight:700;font-size:13px;text-align:center}.special{background:#fff3e0;color:#e65100;padding:1px 5px;border-radius:3px;font-size:10px;font-weight:600;-webkit-print-color-adjust:exact;print-color-adjust:exact}.cat-hdr{font-size:10px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.05em;padding:10px 0 4px;border-bottom:1px solid #ccc;margin-bottom:2px;page-break-after:avoid}.floor-div{border:none;border-top:2px solid #333;margin:16px 0}</style></head><body>'+html+'</body></html>');
+  win.document.close();win.focus();setTimeout(()=>{win.print();},400);
+}
+
+// ── NEW JOB ──
+function handlePlanUpload(inp){
+  if(inp.files&&inp.files[0]){
+    const z=document.getElementById('plansZone');z.classList.add('has-file');
+    z.innerHTML='<div style="font-size:20px;margin-bottom:4px">✓</div>'+inp.files[0].name;
+  }
+}
+async function createJob(){
+  const addr=document.getElementById('newJobAddress').value.trim();
+  const sales=document.getElementById('newJobSales').value;
+  const customer=document.getElementById('newJobCustomer').value.trim();
+  if(!addr||!sales){alert('Please enter an address and select a sales person.');return;}
+  const btn=document.getElementById('createJobBtn');btn.disabled=true;btn.textContent='Creating...';
+  const planFile=document.getElementById('plansFile').files[0];
+  let planFileName='';
+  if(planFile){
+    const filePath=addr.replace(/[^a-z0-9]/gi,'_')+'/'+planFile.name;
+    const {error:upErr}=await sb.storage.from('plans').upload(filePath,planFile,{upsert:true});
+    if(!upErr)planFileName=filePath;
+  }
+  const {error}=await sb.from('jobs').insert({
+    address:addr,customer,sales_person:sales,status:'Pending',
+    ship_date:document.getElementById('newJobShipDate').value||null,
+    notes:document.getElementById('newJobNotes').value.trim(),
+    plan_file:planFileName,has_layout:false,has_cut_list:false
+  });
+  if(error){alert('Error creating job: '+error.message);btn.disabled=false;btn.textContent='Create job';return;}
+  closeModal('newJobModal');
+  ['newJobAddress','newJobCustomer','newJobNotes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('newJobSales').value='';document.getElementById('newJobShipDate').value='';
+  document.getElementById('plansFile').value='';document.getElementById('plansZone').classList.remove('has-file');
+  document.getElementById('plansZone').innerHTML='<div style="font-size:24px;margin-bottom:6px">📄</div>Click to upload plans PDF';
+  btn.disabled=false;btn.textContent='Create job';
+  await loadJobs();
+}
+
+// ── USER ──
+function setUser(){
+  const v=document.getElementById('userSelect').value;if(!v)return;
+  currentUser=v;document.getElementById('userNameEl').textContent=v;
+  document.getElementById('avatarEl').textContent=v.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  closeModal('userModal');
+}
+
+// ── ADMIN ──
+function checkAdminPw(){
+  if(document.getElementById('adminPwInput').value===ADMIN_PW){
+    document.getElementById('adminGate').style.display='none';
+    document.getElementById('adminPanel').style.display='block';
+    renderAdminJobs();renderSalesPersonList();updateSyncPanel();
+  }else{document.getElementById('pwError').style.display='block';}
+}
+function lockAdmin(){
+  document.getElementById('adminGate').style.display='block';document.getElementById('adminPanel').style.display='none';
+  document.getElementById('adminPwInput').value='';document.getElementById('pwError').style.display='none';
+}
+function renderAdminJobs(){
+  document.getElementById('adminJobList').innerHTML=jobs.map(j=>'<div class="job-card" style="margin-bottom:8px"><div class="job-top"><div><div class="job-address">'+j.address+'</div><div class="job-customer">'+(j.customer||'—')+'</div></div>'+badge(j.status)+'</div><div class="job-meta" style="margin-bottom:10px"><span>👤 '+j.sales+'</span><span>📅 '+j.date+'</span>'+(j.shipDate?'<span>🚚 '+j.shipDate+'</span>':'')+'</div><div style="display:flex;gap:6px"><button class="btn sm" onclick="openEditJob(\''+j.id+'\')">✏ Edit</button><button class="btn sm danger" onclick="adminDelete(\''+j.id+'\')">🗑 Delete</button></div></div>').join('');
+}
+function openEditJob(id){
+  editingJobId=id;const j=jobs.find(x=>x.id===id);
+  rebuildSelects();
+  document.getElementById('editAddress').value=j.address;
+  document.getElementById('editCustomer').value=j.customer||'';
+  document.getElementById('editSales').value=j.sales;
+  document.getElementById('editStatus').value=j.status;
+  document.getElementById('editShipDate').value=j.shipDate||'';
+  document.getElementById('editNotes').value=j.notes||'';
+  openModal('editJobModal');
+}
+async function saveEdit(){
+  const j=jobs.find(x=>x.id===editingJobId);if(!j)return;
+  await sb.from('jobs').update({
+    address:document.getElementById('editAddress').value.trim()||j.address,
+    customer:document.getElementById('editCustomer').value.trim(),
+    sales_person:document.getElementById('editSales').value,
+    status:document.getElementById('editStatus').value,
+    ship_date:document.getElementById('editShipDate').value||null,
+    notes:document.getElementById('editNotes').value.trim()
+  }).eq('id',editingJobId);
+  closeModal('editJobModal');await loadJobs();renderAdminJobs();
+}
+async function deleteEditJob(){
+  if(!confirm('Delete this job permanently?'))return;
+  await sb.from('jobs').delete().eq('id',editingJobId);
+  closeModal('editJobModal');await loadJobs();renderAdminJobs();
+}
+async function adminDelete(id){
+  if(!confirm('Delete this job permanently?'))return;
+  await sb.from('jobs').delete().eq('id',id);
+  await loadJobs();renderAdminJobs();
+}
+
+// ── SALES PEOPLE ──
+function renderSalesPersonList(){
+  document.getElementById('salespersonList').innerHTML=salesPeople.map((sp,i)=>'<div class="salesperson-row"><span style="font-weight:500;font-size:13px">'+sp+'</span><button class="btn sm danger" onclick="removeSalesPerson(\''+sp+'\')">Remove</button></div>').join('');
+}
+async function addSalesPerson(){
+  const inp=document.getElementById('newSpInput'),name=inp.value.trim();
+  if(!name)return;
+  if(salesPeople.includes(name)){alert('Already exists.');return;}
+  const {error}=await sb.from('sales_people').insert({name});
+  if(error){alert('Error: '+error.message);return;}
+  inp.value='';await loadSalesPeople();renderSalesPersonList();
+}
+async function removeSalesPerson(name){
+  if(!confirm('Remove "'+name+'" from the list?'))return;
+  const {error}=await sb.from('sales_people').delete().eq('name',name);
+  if(error){alert('Error: '+error.message);return;}
+  await loadSalesPeople();renderSalesPersonList();
+}
+
+// ── CALENDAR ──
+let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
+function renderCalendar(){
+  const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonthLabel').textContent=MONTHS[calMonth]+' '+calYear;
+  const firstDay=new Date(calYear,calMonth,1).getDay();
+  const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  const daysInPrev=new Date(calYear,calMonth,0).getDate();
+  const today=new Date();
+  let html='<div class="cal-grid">';
+  DAYS.forEach(d=>html+='<div class="cal-day-header">'+d+'</div>');
+  for(let i=firstDay-1;i>=0;i--)html+='<div class="cal-day other-month"><div class="cal-day-num">'+(daysInPrev-i)+'</div></div>';
+  for(let d=1;d<=daysInMonth;d++){
+    const isToday=d===today.getDate()&&calMonth===today.getMonth()&&calYear===today.getFullYear();
+    const dateStr=calYear+'-'+String(calMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const dayJobs=jobs.filter(j=>j.shipDate===dateStr);
+    html+='<div class="cal-day'+(isToday?' today':'')+'"><div class="cal-day-num">'+d+'</div>';
+    dayJobs.forEach(j=>html+='<div class="cal-job '+(j.status==='Ready'?'ready':'pending')+'" onclick="openJobDetail(\''+j.id+'\')" title="'+j.address+' — '+j.sales+'">'+j.address.split(',')[0]+'</div>');
+    html+='</div>';
+  }
+  const totalCells=Math.ceil((firstDay+daysInMonth)/7)*7;
+  for(let d=1;d<=totalCells-firstDay-daysInMonth;d++)html+='<div class="cal-day other-month"><div class="cal-day-num">'+d+'</div></div>';
+  html+='</div>';
+  document.getElementById('calGrid').innerHTML=html;
+}
+function prevMonth(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendar();}
+function nextMonth(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendar();}
+function goToday(){calYear=new Date().getFullYear();calMonth=new Date().getMonth();renderCalendar();}
+
+// ── UTILS ──
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+function showPage(name,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if(btn)btn.classList.add('active');
+  if(name==='calendar')renderCalendar();
+  if(name==='admin'){renderAdminJobs();renderSalesPersonList();}
+}
+function showTab(id,el){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');el.classList.add('active');
+}
+
+
+function downloadCutListHTML(id){
+  const j=jobs.find(x=>x.id===id);if(!j||!j.cutList)return;
+  const html=document.getElementById('cutListContent')?.innerHTML||'';
+  // Open and generate the cut list first then download
+  viewCutList(id);
+  setTimeout(()=>{
+    const content=document.getElementById('cutListContent').innerHTML;
+    const fullHtml=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Cut List - ${j.address}</title>
+<style>body{font-family:system-ui,sans-serif;font-size:12px;color:#1a1a1a;padding:16px;margin:0}table{width:100%;border-collapse:collapse;margin-bottom:4px;page-break-inside:auto}thead{display:table-header-group}th{text-align:left;padding:5px 8px;font-size:10px;font-weight:600;color:#666;border-bottom:1px solid #ccc;background:#f5f5f5;text-transform:uppercase;-webkit-print-color-adjust:exact;print-color-adjust:exact}td{padding:5px 8px;border-bottom:1px solid #eee;font-size:11px}tr{page-break-inside:avoid}tr:last-child td{border-bottom:none}.sku{font-family:monospace;font-size:11px;color:#185FA5;font-weight:600}.tag-chip{font-family:monospace;font-size:10px;font-weight:700;color:#444;background:#f0f0f0;padding:1px 5px;border-radius:3px}.qty-cell{font-weight:700;font-size:13px;text-align:center}.special{background:#fff3e0;color:#e65100;padding:1px 5px;border-radius:3px;font-size:10px;font-weight:600}.cat-hdr{font-size:10px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.05em;padding:10px 0 4px;border-bottom:1px solid #ccc;margin-bottom:2px}.floor-div{border:none;border-top:2px solid #333;margin:16px 0}</style>
+</head><body>${content}</body></html>`;
+    const a=document.createElement('a');
+    a.href='data:text/html;charset=utf-8,'+encodeURIComponent(fullHtml);
+    a.download='CutList_'+j.address.replace(/[^a-z0-9]/gi,'_')+'.html';
+    a.click();
+    closeModal('cutListModal');
+  },300);
+}
+
+
+// ── PDF PARSER ──
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const SKU_MAP={
+  '9-1/2" BCI 6000-1.8 DF':'BCI60009','11-7/8" BCI 6000-1.8 DF':'BCI600011',
+  '14" BCI 6000-1.8 DF':'BCI600014','16" BCI 6000-1.8 DF':'BCI600016',
+  '11-7/8" BCI 60-2.0 DF':'BCI6011','14" BCI 60-2.0 DF':'BCI6014',
+  '16" BCI 60-2.0 DF':'BCI6016','9-1/2" BCI 90-2.0 DF':'BCI909',
+  '11-7/8" BCI 90-2.0 DF':'BCI9011','14" BCI 90-2.0 DF':'BCI9014','16" BCI 90-2.0 DF':'BCI9016',
+  '1-3/4" x 9-1/2" VERSA-LAM LVL 2.1E 2800 DF':'VL195',
+  '1-3/4" x 11-7/8" VERSA-LAM LVL 2.1E 2800 DF':'VL111','1-3/4" x 14" VERSA-LAM LVL 2.1E 2800 DF':'VL114',
+  '1-3/4" x 16" VERSA-LAM LVL 2.1E 2800 DF':'VL116','1-3/4" x 18" VERSA-LAM LVL 2.1E 2800 DF':'VL118',
+  '1-3/4" x 20" VERSA-LAM LVL 2.1E 2800 DF':'VL120','1-3/4" x 22" VERSA-LAM LVL 2.1E 2800 DF':'VL122',
+  '1-3/4" x 24" VERSA-LAM LVL 2.1E 2800 DF':'VL124',
+  '3-1/2" x 9-1/2" VERSA-LAM LVL 2.3E 3100 DF':'VL395','3-1/2" x 11-7/8" VERSA-LAM LVL 2.3E 3100 DF':'VL311',
+  '3-1/2" x 14" VERSA-LAM LVL 2.3E 3100 DF':'VL314','3-1/2" x 16" VERSA-LAM LVL 2.3E 3100 DF':'VL316',
+  '3-1/2" x 18" VERSA-LAM LVL 2.3E 3100 DF':'VL318','3-1/2" x 19" VERSA-LAM LVL 2.3E 3100 DF':'VL319',
+  '3-1/2" x 20" VERSA-LAM LVL 2.3E 3100 DF':'VL320','3-1/2" x 22" VERSA-LAM LVL 2.3E 3100 DF':'VL322',
+  '3-1/2" x 24" VERSA-LAM LVL 2.3E 3100 DF':'VL324',
+  '5-1/4" x 9-1/2" VERSA-LAM LVL 2.3E 3100 DF':'VL59',
+  '5-1/4" x 11-7/8" VERSA-LAM LVL 2.3E 3100 DF':'VL511','5-1/4" x 14" VERSA-LAM LVL 2.3E 3100 DF':'VL514',
+  '5-1/4" x 16" VERSA-LAM LVL 2.3E 3100 DF':'VL516','5-1/4" x 18" VERSA-LAM LVL 2.3E 3100 DF':'VL518',
+  '5-1/4" x 19" VERSA-LAM LVL 2.3E 3100 DF':'VL519','5-1/4" x 20" VERSA-LAM LVL 2.3E 3100 DF':'VL520',
+  '5-1/4" x 22" VERSA-LAM LVL 2.3E 3100 DF':'VL522','5-1/4" x 24" VERSA-LAM LVL 2.3E 3100 DF':'VL524',
+  '7" x 9-1/2" VERSA-LAM LVL 2.3E 3100 DF':'VL795','7" x 11-7/8" VERSA-LAM LVL 2.3E 3100 DF':'VL711',
+  '7" x 14" VERSA-LAM LVL 2.3E 3100 DF':'VL714','7" x 16" VERSA-LAM LVL 2.3E 3100 DF':'VL716',
+  '7" x 18" VERSA-LAM LVL 2.3E 3100 DF':'VL718','7" x 19" VERSA-LAM LVL 2.3E 3100 DF':'VL719',
+  '7" x 20" VERSA-LAM LVL 2.3E 3100 DF':'VL720','7" x 22" VERSA-LAM LVL 2.3E 3100 DF':'VL722',
+  '7" x 24" VERSA-LAM LVL 2.3E 3100 DF':'VL724',
+  '1-1/4" x 9-1/2" BC RIM BOARD PLUS OSB':'710016','1-1/4" x 11-7/8" BC RIM BOARD PLUS OSB':'710056',
+  '1-1/4" x 14" BC RIM BOARD PLUS OSB':'710076','1-1/4" x 16" BC RIM BOARD PLUS OSB':'71003357',
+  'IUS2.37/9.5':'8589072','IUS2.37/11.88':'35945110','IUS2.37/14':'8589078',
+  'IUS3.56/11.88':'35945123','IUS3.56/14':'46305009',
+  'HU3511':'HU3511','HUC410':'35945420','HUC410-2':'HUC410-2','HUC414':'HUC414',
+  'HUC610':'35945222','HGUS410':'8589042','HGUS412':'8589043','HGUS414':'8589107',
+  'HUCQ610':'35945381','HGUS5.50/10':'8589044','HGUS5.50/12':'8589045',
+  'HGUS7.25/10':'8589046','HGUS7.25/12':'8589108','HGUS7.25/14':'8589117',
+  'HUS1.81/10':'8589041','3/4" 4x8 OSB (Floor Decking)':'2332OSB'
+};
+
+function pNorm(s){return s.replace(/[®™©]/g,'').replace(/\s+/g,' ').trim();}
+function pSku(p){return SKU_MAP[pNorm(p)]||null;}
+function pIsRim(p){return /BC RIM BOARD/i.test(p);}
+function pIsJoist(p){return /BCI/i.test(p)&&!pIsRim(p);}
+function pIsPost(p){return /VERSA-LAM/i.test(p)&&/1\.8E 2650/i.test(p);}
+function pIsBeam(p){return /VERSA-LAM/i.test(p)&&!pIsPost(p);}
+function pIgnore(p){return /web stiffener|generic material/i.test(p);}
+
+async function parsePdfBuffer(buf){
+  try{
+    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    const allLines=[];
+    for(let i=1;i<=pdf.numPages;i++){
+      const page=await pdf.getPage(i);
+      const tc=await page.getTextContent();
+      const byY={};
+      for(const item of tc.items){
+        const y=Math.round(item.transform[5]);
+        if(!byY[y])byY[y]=[];
+        byY[y].push({x:item.transform[4],str:item.str});
+      }
+      for(const y of Object.keys(byY).map(Number).sort((a,b)=>b-a)){
+        const sorted=byY[y].sort((a,b)=>a.x-b.x);
+        allLines.push(sorted.map(it=>it.str).join(' '));
+      }
+    }
+    return parseLines(allLines);
+  }catch(e){console.error('PDF parse error:',e);return null;}
+}
+
+function parseLines(lines){
+  const SEC_RE=/^(Floor Framing|Floor Accessories|Beams|Posts|Decking|Connectors) - (.+ Floor)$/;
+  const DATA_RE=/(\d+) (\d+)' \d+'$/;
+  const TAG_RE=/0'- \d+[\d\s/]*["']?\s+(\S+)\s+\d+ \d+'/;
+  const CONN_RE=/^([A-Z][A-Z0-9\/.-]{2,}) .+ (\d+)$/;
+  const full=lines.join('\n');
+  let project='',builder='';
+  const m1=full.match(/File Name: ([\w\s-]+?)(?= Date:| Misc:|\n)/);if(m1)project=m1[1].trim();
+  const m2=full.match(/Builder: ([\w\s,.]+?)(?= Date:| Job|\n)/);if(m2)builder=m2[1].trim();
+  const floors={};
+  let curSection=null,curFloor=null,curProduct=null;
+  for(const raw of lines){
+    const line=raw.trim();
+    if(!line)continue;
+    if(/^(Product Depth|Subtotal|AJS|BOISE CASCADE|Page \d|\d{2}\/\d{2}\/\d{4}|STUD)/.test(line))continue;
+    const sm=line.match(SEC_RE);
+    if(sm){
+      curSection=sm[1];curFloor=sm[2].trim();curProduct=null;
+      if(!floors[curFloor])floors[curFloor]={rimFt:0,rimSku:'710056',rimProd:'1-1/4" x 11-7/8" BC RIM BOARD PLUS OSB',joists:[],beams:[],posts:[],decking:0,connectors:{},connectorSkus:{}};
+      continue;
+    }
+    if(!curSection)continue;
+    const f=floors[curFloor];
+    if(curSection==='Decking'){const dm=line.match(/3\/4" 4x8 OSB \(Floor Decking\) (\d+)/);if(dm)f.decking=parseInt(dm[1]);continue;}
+    if(curSection==='Connectors'){
+      const cm=line.match(CONN_RE);
+      if(cm){const prod=cm[1],qty=parseInt(cm[2]);if(!pIgnore(prod)){f.connectors[prod]=(f.connectors[prod]||0)+qty;const s=pSku(prod);if(s)f.connectorSkus[prod]=s;}}
+      continue;
+    }
+    const em=line.match(DATA_RE);if(!em)continue;
+    const qty=parseInt(em[1]),length=parseInt(em[2]);
+    const tm=line.match(TAG_RE);const tag=tm?tm[1].replace(/'+$/,''):'';
+    const di=line.indexOf(" 0'- ");
+    const addEntry=(prod,qty,length,tag)=>{
+      if(!prod||pIgnore(prod))return;
+      const sku=pSku(prod);const entry={product:pNorm(prod),sku,tag,qty,length};
+      if(pIsRim(prod)){f.rimFt+=qty*length;const s=pSku(prod);if(s){f.rimSku=s;f.rimProd=pNorm(prod);}}
+      else if(curSection==='Floor Accessories'&&pIsJoist(prod)){}
+      else if(pIsJoist(prod))f.joists.push(entry);
+      else if(pIsPost(prod))f.posts.push(entry);
+      else if(pIsBeam(prod))f.beams.push(entry);
+    };
+    if(di>0){const prod=line.slice(0,di).trim();curProduct=prod;addEntry(prod,qty,length,tag);}
+    else if(line.startsWith("0'-")&&curProduct){addEntry(curProduct,qty,length,tag);}
+  }
+  return{project,builder,floors};
+}
+
+
+// ── INIT ──
+init();
+</script>
+</body>
+</html>
