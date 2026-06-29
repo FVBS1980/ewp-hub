@@ -6,6 +6,7 @@
 <title>EWP Hub</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 :root{
   --bg:#F5F4F1;--surface:#FFF;--surface2:#EFEDE8;--border:#E0DDD6;--border2:#CCCAB8;
@@ -436,18 +437,18 @@ async function runSync(){
           const upd={};
           if(isLayout){upd.has_layout=true;upd.layout_url=file.webViewLink;}
           if(isMaterial){
-            // Call Netlify function to parse the material list PDF
+            // Parse material list PDF directly in browser using pdf.js
             try{
               log.textContent='Parsing material list for '+matchedJob.address+'...';
-              const parseResp=await fetch('/.netlify/functions/parse-cutlist',{
-                method:'POST',
-                headers:{'Content-Type':'application/json'},
-                body:JSON.stringify({fileId:file.id,gdriveToken:gdriveToken})
-              });
-              const parseData=await parseResp.json();
-              if(parseData.success&&parseData.cutList){
-                upd.has_cut_list=true;
-                upd.cut_list=parseData.cutList;
+              // Download PDF from Google Drive
+              const pdfResp=await fetch('https://www.googleapis.com/drive/v3/files/'+file.id+'?alt=media',{headers});
+              if(pdfResp.ok){
+                const pdfBuf=await pdfResp.arrayBuffer();
+                const cutList=await parsePdfBuffer(pdfBuf);
+                if(cutList){
+                  upd.has_cut_list=true;
+                  upd.cut_list=cutList;
+                }
               }
             }catch(parseErr){console.error('Parse error:',parseErr);}
           }
@@ -840,6 +841,126 @@ function downloadCutListHTML(id){
     closeModal('cutListModal');
   },300);
 }
+
+
+// ── PDF PARSER ──
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const SKU_MAP={
+  '9-1/2" BCI 6000-1.8 DF':'BCI60009','11-7/8" BCI 6000-1.8 DF':'BCI600011',
+  '14" BCI 6000-1.8 DF':'BCI600014','16" BCI 6000-1.8 DF':'BCI600016',
+  '11-7/8" BCI 60-2.0 DF':'BCI6011','14" BCI 60-2.0 DF':'BCI6014',
+  '16" BCI 60-2.0 DF':'BCI6016','9-1/2" BCI 90-2.0 DF':'BCI909',
+  '11-7/8" BCI 90-2.0 DF':'BCI9011','14" BCI 90-2.0 DF':'BCI9014','16" BCI 90-2.0 DF':'BCI9016',
+  '1-3/4" x 9-1/2" VERSA-LAM LVL 2.1E 2800 DF':'VL195',
+  '1-3/4" x 11-7/8" VERSA-LAM LVL 2.1E 2800 DF':'VL111','1-3/4" x 14" VERSA-LAM LVL 2.1E 2800 DF':'VL114',
+  '1-3/4" x 16" VERSA-LAM LVL 2.1E 2800 DF':'VL116','1-3/4" x 18" VERSA-LAM LVL 2.1E 2800 DF':'VL118',
+  '1-3/4" x 20" VERSA-LAM LVL 2.1E 2800 DF':'VL120','1-3/4" x 22" VERSA-LAM LVL 2.1E 2800 DF':'VL122',
+  '1-3/4" x 24" VERSA-LAM LVL 2.1E 2800 DF':'VL124',
+  '3-1/2" x 9-1/2" VERSA-LAM LVL 2.3E 3100 DF':'VL395','3-1/2" x 11-7/8" VERSA-LAM LVL 2.3E 3100 DF':'VL311',
+  '3-1/2" x 14" VERSA-LAM LVL 2.3E 3100 DF':'VL314','3-1/2" x 16" VERSA-LAM LVL 2.3E 3100 DF':'VL316',
+  '3-1/2" x 18" VERSA-LAM LVL 2.3E 3100 DF':'VL318','3-1/2" x 19" VERSA-LAM LVL 2.3E 3100 DF':'VL319',
+  '3-1/2" x 20" VERSA-LAM LVL 2.3E 3100 DF':'VL320','3-1/2" x 22" VERSA-LAM LVL 2.3E 3100 DF':'VL322',
+  '3-1/2" x 24" VERSA-LAM LVL 2.3E 3100 DF':'VL324',
+  '5-1/4" x 9-1/2" VERSA-LAM LVL 2.3E 3100 DF':'VL59',
+  '5-1/4" x 11-7/8" VERSA-LAM LVL 2.3E 3100 DF':'VL511','5-1/4" x 14" VERSA-LAM LVL 2.3E 3100 DF':'VL514',
+  '5-1/4" x 16" VERSA-LAM LVL 2.3E 3100 DF':'VL516','5-1/4" x 18" VERSA-LAM LVL 2.3E 3100 DF':'VL518',
+  '5-1/4" x 19" VERSA-LAM LVL 2.3E 3100 DF':'VL519','5-1/4" x 20" VERSA-LAM LVL 2.3E 3100 DF':'VL520',
+  '5-1/4" x 22" VERSA-LAM LVL 2.3E 3100 DF':'VL522','5-1/4" x 24" VERSA-LAM LVL 2.3E 3100 DF':'VL524',
+  '7" x 9-1/2" VERSA-LAM LVL 2.3E 3100 DF':'VL795','7" x 11-7/8" VERSA-LAM LVL 2.3E 3100 DF':'VL711',
+  '7" x 14" VERSA-LAM LVL 2.3E 3100 DF':'VL714','7" x 16" VERSA-LAM LVL 2.3E 3100 DF':'VL716',
+  '7" x 18" VERSA-LAM LVL 2.3E 3100 DF':'VL718','7" x 19" VERSA-LAM LVL 2.3E 3100 DF':'VL719',
+  '7" x 20" VERSA-LAM LVL 2.3E 3100 DF':'VL720','7" x 22" VERSA-LAM LVL 2.3E 3100 DF':'VL722',
+  '7" x 24" VERSA-LAM LVL 2.3E 3100 DF':'VL724',
+  '1-1/4" x 9-1/2" BC RIM BOARD PLUS OSB':'710016','1-1/4" x 11-7/8" BC RIM BOARD PLUS OSB':'710056',
+  '1-1/4" x 14" BC RIM BOARD PLUS OSB':'710076','1-1/4" x 16" BC RIM BOARD PLUS OSB':'71003357',
+  'IUS2.37/9.5':'8589072','IUS2.37/11.88':'35945110','IUS2.37/14':'8589078',
+  'IUS3.56/11.88':'35945123','IUS3.56/14':'46305009',
+  'HU3511':'HU3511','HUC410':'35945420','HUC410-2':'HUC410-2','HUC414':'HUC414',
+  'HUC610':'35945222','HGUS410':'8589042','HGUS412':'8589043','HGUS414':'8589107',
+  'HUCQ610':'35945381','HGUS5.50/10':'8589044','HGUS5.50/12':'8589045',
+  'HGUS7.25/10':'8589046','HGUS7.25/12':'8589108','HGUS7.25/14':'8589117',
+  'HUS1.81/10':'8589041','3/4" 4x8 OSB (Floor Decking)':'2332OSB'
+};
+
+function pNorm(s){return s.replace(/[®™©]/g,'').replace(/\s+/g,' ').trim();}
+function pSku(p){return SKU_MAP[pNorm(p)]||null;}
+function pIsRim(p){return /BC RIM BOARD/i.test(p);}
+function pIsJoist(p){return /BCI/i.test(p)&&!pIsRim(p);}
+function pIsPost(p){return /VERSA-LAM/i.test(p)&&/1\.8E 2650/i.test(p);}
+function pIsBeam(p){return /VERSA-LAM/i.test(p)&&!pIsPost(p);}
+function pIgnore(p){return /web stiffener|generic material/i.test(p);}
+
+async function parsePdfBuffer(buf){
+  try{
+    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    const allLines=[];
+    for(let i=1;i<=pdf.numPages;i++){
+      const page=await pdf.getPage(i);
+      const tc=await page.getTextContent();
+      const byY={};
+      for(const item of tc.items){
+        const y=Math.round(item.transform[5]);
+        if(!byY[y])byY[y]=[];
+        byY[y].push({x:item.transform[4],str:item.str});
+      }
+      for(const y of Object.keys(byY).map(Number).sort((a,b)=>b-a)){
+        const sorted=byY[y].sort((a,b)=>a.x-b.x);
+        allLines.push(sorted.map(it=>it.str).join(' '));
+      }
+    }
+    return parseLines(allLines);
+  }catch(e){console.error('PDF parse error:',e);return null;}
+}
+
+function parseLines(lines){
+  const SEC_RE=/^(Floor Framing|Floor Accessories|Beams|Posts|Decking|Connectors) - (.+ Floor)$/;
+  const DATA_RE=/(\d+) (\d+)' \d+'$/;
+  const TAG_RE=/0'- \d+[\d\s/]*["']?\s+(\S+)\s+\d+ \d+'/;
+  const CONN_RE=/^([A-Z][A-Z0-9\/.-]{2,}) .+ (\d+)$/;
+  const full=lines.join('\n');
+  let project='',builder='';
+  const m1=full.match(/File Name: ([\w\s-]+?)(?= Date:| Misc:|\n)/);if(m1)project=m1[1].trim();
+  const m2=full.match(/Builder: ([\w\s,.]+?)(?= Date:| Job|\n)/);if(m2)builder=m2[1].trim();
+  const floors={};
+  let curSection=null,curFloor=null,curProduct=null;
+  for(const raw of lines){
+    const line=raw.trim();
+    if(!line)continue;
+    if(/^(Product Depth|Subtotal|AJS|BOISE CASCADE|Page \d|\d{2}\/\d{2}\/\d{4}|STUD)/.test(line))continue;
+    const sm=line.match(SEC_RE);
+    if(sm){
+      curSection=sm[1];curFloor=sm[2].trim();curProduct=null;
+      if(!floors[curFloor])floors[curFloor]={rimFt:0,rimSku:'710056',rimProd:'1-1/4" x 11-7/8" BC RIM BOARD PLUS OSB',joists:[],beams:[],posts:[],decking:0,connectors:{},connectorSkus:{}};
+      continue;
+    }
+    if(!curSection)continue;
+    const f=floors[curFloor];
+    if(curSection==='Decking'){const dm=line.match(/3\/4" 4x8 OSB \(Floor Decking\) (\d+)/);if(dm)f.decking=parseInt(dm[1]);continue;}
+    if(curSection==='Connectors'){
+      const cm=line.match(CONN_RE);
+      if(cm){const prod=cm[1],qty=parseInt(cm[2]);if(!pIgnore(prod)){f.connectors[prod]=(f.connectors[prod]||0)+qty;const s=pSku(prod);if(s)f.connectorSkus[prod]=s;}}
+      continue;
+    }
+    const em=line.match(DATA_RE);if(!em)continue;
+    const qty=parseInt(em[1]),length=parseInt(em[2]);
+    const tm=line.match(TAG_RE);const tag=tm?tm[1].replace(/'+$/,''):'';
+    const di=line.indexOf(" 0'- ");
+    const addEntry=(prod,qty,length,tag)=>{
+      if(!prod||pIgnore(prod))return;
+      const sku=pSku(prod);const entry={product:pNorm(prod),sku,tag,qty,length};
+      if(pIsRim(prod)){f.rimFt+=qty*length;const s=pSku(prod);if(s){f.rimSku=s;f.rimProd=pNorm(prod);}}
+      else if(curSection==='Floor Accessories'&&pIsJoist(prod)){}
+      else if(pIsJoist(prod))f.joists.push(entry);
+      else if(pIsPost(prod))f.posts.push(entry);
+      else if(pIsBeam(prod))f.beams.push(entry);
+    };
+    if(di>0){const prod=line.slice(0,di).trim();curProduct=prod;addEntry(prod,qty,length,tag);}
+    else if(line.startsWith("0'-")&&curProduct){addEntry(curProduct,qty,length,tag);}
+  }
+  return{project,builder,floors};
+}
+
 
 // ── INIT ──
 init();
